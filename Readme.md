@@ -2,15 +2,67 @@
 
 > Hacer una vaquita entre amigos es facil. Cerrarla no.
 
+## Indice
+
+0. [Ficha del proyecto](#0-ficha-del-proyecto)
+1. [El problema](#1-el-problema)
+2. [Que hace el usuario y que le devuelve el sistema](#2-que-hace-el-usuario-y-que-le-devuelve-el-sistema)
+3. [El desafio tecnico interesante](#3-el-desafio-tecnico-interesante)
+4. [Funcionalidades del MVP (historias de usuario)](#4-funcionalidades-del-mvp-historias-de-usuario)
+5. [Arquitectura](#5-arquitectura)
+6. [Modelo de datos](#6-modelo-de-datos)
+7. [Especificacion de la API](#7-especificacion-de-la-api)
+8. [Decisiones de alcance y riesgo](#8-decisiones-de-alcance-y-riesgo)
+9. [Stack tecnico](#9-stack-tecnico)
+10. [Tickets de trabajo](#10-tickets-de-trabajo)
+11. [Como correr el proyecto](#11-como-correr-el-proyecto)
+
+<details>
+<summary>Equivalencia con la plantilla oficial del curso</summary>
+
+Este documento usa una numeracion propia porque el orden sigue el razonamiento
+del proyecto. La correspondencia con la plantilla `AI4Devs-finalproject` es:
+
+| Plantilla oficial | Aqui |
+|---|---|
+| 0. Ficha del proyecto | 0 |
+| 1.1 Objetivo | 1 |
+| 1.2 Caracteristicas y funcionalidades | 2 y 4 |
+| 1.3 Diseño y experiencia de usuario | 2.1 |
+| 1.4 Instrucciones de instalacion | 11 |
+| 2.1 Diagrama de arquitectura | 5.1 |
+| 2.2 Descripcion de componentes | 5.1 y 5.2 |
+| 2.3 Estructura de ficheros | 5.4 |
+| 2.4 Infraestructura y despliegue | 5.5 |
+| 2.5 Seguridad | 5.6 |
+| 2.6 Tests | 5.7 |
+| 3. Modelo de datos | 6 |
+| 4. Especificacion de la API | 7 |
+| 5. Historias de usuario | 4 |
+| 6. Tickets de trabajo | 10 |
+| 7. Pull requests | no aplica — ver nota |
+
+**Sobre la seccion 7 de la plantilla (Pull Requests):** la Leccion 1 del Proyecto
+Final, que se declara fuente de verdad de las reglas, dice que la entrega es rama
++ Typeform y que no hay que abrir ningun Pull Request. Por eso este documento no
+tiene esa seccion.
+
+</details>
+
+---
+
 ## 0. Ficha del proyecto
 
 | | |
 |---|---|
-| **Nombre** | Vaquita |
-| **Alumno** | Lisandro Arguello |
+| **0.1 Nombre completo del alumno** | Lisandro Arguello |
+| **0.2 Nombre del proyecto** | Vaquita |
+| **0.3 Descripcion breve** | Gastos compartidos entre grupos chicos. Dado el saldo neto de cada integrante, calcula el conjunto minimo de transferencias que deja a todos en cero. No mueve dinero: emite instrucciones de pago. |
+| **0.4 URL del proyecto** | Todavia no desplegado. El despliegue es opcional segun las reglas del curso; se decide en la Entrega 3. |
+| **0.5 URL del repositorio** | https://github.com/lisandroarguello/vaquita — publico |
 | **Programa** | LIDR AI4Devs — cohorte 2026/08 |
 | **Entrega** | 1 — Documentacion tecnica |
-| **Repositorio** | `vaquita` (rama `feature/entrega-1-la`) |
+| **Rama de esta entrega** | `feature/entrega-1-la` |
 | **Dominio** | Fintech / gastos compartidos |
 
 ---
@@ -48,7 +100,7 @@ transferencia por alias o CVU, no un pago intragrupal dentro de una app.
 Vaquita **no mueve dinero**. No es un PSP, no tiene cuenta de dinero electronico,
 no toma custodia de fondos. Emite instrucciones de pago — "Ana le transfiere
 $18.400 a Javier, alias `javier.mp`" — y registra cuando alguien las marca como
-hechas. Esa decision es deliberada y esta justificada en la seccion 7.
+hechas. Esa decision es deliberada y esta justificada en la seccion 8.
 
 ---
 
@@ -71,6 +123,31 @@ hechas. Esa decision es deliberada y esta justificada en la seccion 7.
 
 **El momento que define el producto** es el boton *Cerrar la vaquita*: cinco dias
 de gastos cruzados se convierten en tres transferencias concretas, con alias y monto.
+
+---
+
+### 2.1 Diseño y experiencia de usuario
+
+> Plantilla oficial 1.3. La Leccion 1 pide imagenes o video de la experiencia
+> para la Entrega Final. En la Entrega 1 no hay interfaz todavia, asi que lo que
+> sigue es el recorrido comprometido; las capturas se agregan en la Entrega 3.
+
+El recorrido completo son cuatro pantallas, ni una mas:
+
+1. **Grupo.** Lista de integrantes y total gastado. Es la pantalla de inicio.
+2. **Alta de gasto.** Quien pago, cuanto, y como se reparte. El reparto por
+   partes iguales viene elegido; las divisiones flexibles estan a un toque.
+3. **Saldos.** Cuanto debe o le deben a cada uno, en tiempo real. Sin accion.
+4. **Cierre.** La pantalla que define el producto: la lista minima de
+   transferencias, cada una con alias de destino y monto, y el contador de
+   cuantas transferencias se ahorraron frente a que cada deudor le pague a cada
+   acreedor.
+
+La decision de experiencia que ordena todo el resto: **cargar un gasto tiene que
+costar menos que no cargarlo.** Si cargar es friccion, el grupo abandona a los
+tres dias y el cierre no tiene datos que cerrar. De ahi que exista la ingesta
+desde texto o foto (HU-3) y que el camino manual tenga los valores por defecto
+puestos donde cae el caso comun.
 
 ---
 
@@ -354,6 +431,101 @@ sequenceDiagram
 
 ---
 
+### 5.4 Estructura de ficheros
+
+> Plantilla oficial 2.3. Estructura comprometida; se materializa en la Entrega 2.
+
+```
+vaquita/
+├─ apps/
+│  ├─ api/            Node/TypeScript. Endpoints, auth, validacion de entrada.
+│  └─ web/            SPA React. Las cuatro pantallas de 2.1.
+├─ packages/
+│  ├─ domain/         Reparto y Minimizador. Funciones puras, sin dependencias.
+│  ├─ ingest/         Texto/imagen -> borrador validado. Frontera dura al LLM.
+│  └─ schema/         Tipos compartidos entre api y web.
+├─ db/
+│  ├─ migrations/     Migraciones versionadas.
+│  └─ seed/           Datos de prueba generados, nunca reales.
+└─ tests/             E2E del flujo principal.
+```
+
+El limite que importa es `packages/domain`: no importa nada de `apps/`, de `db/`
+ni de ningun framework. Esa regla es lo que hace que la parte riesgosa del
+sistema se pueda testear sin levantar infraestructura, y es la unica que vale la
+pena hacer cumplir con un chequeo automatico.
+
+### 5.5 Infraestructura y despliegue
+
+> Plantilla oficial 2.4. La Leccion 1 dice que el despliegue es **opcional** y
+> que en la Entrega 1 no se pide. Lo que sigue es el plan, no algo hecho.
+
+Un contenedor para la API, estaticos para el frontend y un PostgreSQL
+administrado. Las imagenes de ingesta van a object storage con borrado
+programado, no al disco de la API.
+
+La evidencia de funcionamiento de la Entrega 3 puede ser URL publica, video de
+2-3 minutos o acceso al repo con credenciales de prueba. **Todavia no esta
+decidida cual** — si el despliegue se come tiempo que hace falta para los tests,
+la evidencia sera el video, que es igual de valido segun las reglas.
+
+### 5.6 Seguridad
+
+> Plantilla oficial 2.5.
+
+Cuatro decisiones, y la primera es la que mas riesgo elimina:
+
+**No hay custodia de fondos.** Vaquita no mueve plata: emite instrucciones de
+pago. Esto no es una limitacion pendiente de resolver, es lo que mantiene el
+proyecto fuera del perimetro regulatorio de un producto financiero. Esta
+argumentado en la seccion 8.
+
+**Los alias de pago son datos sensibles.** Un alias identifica una cuenta real.
+Solo es visible para los integrantes del grupo, y solo dentro del plan de cierre
+donde hace falta.
+
+**Las imagenes de ticket se borran.** La ingesta recibe una foto que puede tener
+mucho mas que el total: direcciones, tarjetas, otros nombres. Se guarda el tiempo
+minimo para procesarla y se borra. El criterio esta en la seccion 8.
+
+**Ningun secreto en el repositorio.** `.env.example` lista las variables
+requeridas, vacias. Los datos de desarrollo son generados.
+
+Lo que **no** esta resuelto todavia y se decide con el codigo: politica de
+expiracion de sesion, limite de tasa en los endpoints de ingesta (son los caros)
+y validacion de tamaño y tipo de archivo en la subida.
+
+### 5.7 Tests
+
+> Plantilla oficial 2.6. La Leccion 1 no pide tests en la Entrega 1; la suite
+> completa es requisito de la Entrega Final.
+
+La densidad de tests no se reparte pareja. Va donde esta el riesgo:
+
+**Unitarios, sobre `packages/domain`.** Es el grueso. Dos propiedades que se
+verifican en cada caso generado, no solo en ejemplos elegidos a mano:
+
+- la suma de los saldos despues de aplicar el plan es exactamente cero;
+- el plan nunca tiene mas transferencias que `n-1` para `n` integrantes.
+
+Mas los casos borde de centavos de la seccion 3.2: montos que no dividen exacto,
+grupos donde el residuo cae siempre en la misma persona, importes negativos.
+
+**Integracion, API + base de datos.** Que el trigger de integridad de reparto
+haga lo que dice, y que el calculo de saldos sobre datos reales coincida con el
+del dominio puro.
+
+**E2E, un recorrido.** Crear grupo, cargar tres gastos con repartos distintos,
+pedir el cierre y verificar la lista de transferencias.
+
+**La ingesta con LLM se testea distinto.** La respuesta del modelo no es
+determinista, asi que lo determinista se testea con respuestas simuladas —
+parseo, validacion contra esquema, que hace el sistema cuando la extraccion
+viene mal — y la salida real se valida por estructura y campos obligatorios, no
+comparando texto exacto.
+
+---
+
 ## 6. Modelo de datos
 
 ```mermaid
@@ -455,7 +627,7 @@ erDiagram
 
 ---
 
-## 6.bis Especificacion de la API
+## 7. Especificacion de la API
 
 REST sobre JSON. Todas las rutas bajo `/api/v1`. Autenticacion por token en
 `Authorization: Bearer`. Los montos viajan **siempre en centavos enteros**, con el
@@ -550,7 +722,7 @@ invariante violada, con detalle y sin plan.
 
 ---
 
-## 7. Decisiones de alcance y riesgo
+## 8. Decisiones de alcance y riesgo
 
 ### Vaquita no mueve dinero
 
@@ -583,7 +755,7 @@ contable, grupos de mas de 15 personas, app movil nativa, e integracion bancaria
 
 ---
 
-## 8. Stack tecnico
+## 9. Stack tecnico
 
 | Capa | Eleccion | Por que |
 |---|---|---|
@@ -603,7 +775,7 @@ minimizacion) es codigo puro sin dependencias de framework, y se porta tal cual.
 
 ---
 
-## 9. Tickets de trabajo
+## 10. Tickets de trabajo
 
 Agrupados por capa. Cada uno es una unidad entregable y verificable.
 
@@ -677,7 +849,7 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 
 ---
 
-## 10. Como correr el proyecto
+## 11. Como correr el proyecto
 
 > Esta seccion se completa con la Entrega 2, cuando exista codigo. El compromiso es
 > que clonar el repositorio, copiar `.env.example` a `.env` y ejecutar dos comandos

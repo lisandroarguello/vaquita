@@ -5,7 +5,74 @@ Entrega 1. El criterio del registro: no se transcribe cada mensaje, se registra
 **cada prompt que cambio el resultado**, junto con que devolvio y que hubo que
 corregir a mano.
 
-Herramienta: Claude Code (Opus) sobre el repositorio.
+---
+
+## 0. Herramientas, modelos y contexto
+
+### Herramientas y modelos
+
+| Fase | Herramienta | Modelo | Para que |
+|---|---|---|---|
+| Analisis y diseño | Claude Code | Opus | Definir el problema, discutir alcance, revision adversarial |
+| Documentacion | Claude Code | Opus | Redactar Readme y Prompts, diagramas Mermaid |
+| Implementacion | Claude Code | — | Pendiente: Entrega 2 |
+| Pruebas | Claude Code | — | Pendiente: Entrega 2 |
+| Despliegue | — | — | Opcional segun las reglas del curso; sin decidir |
+| Mantenimiento | — | — | Fuera del alcance del MVP |
+
+La Entrega 1 es documentacion, asi que todo el trabajo registrado aqui cae en
+analisis, diseño y documentacion. Las fases de implementacion y pruebas se
+completan en la Entrega 2.
+
+### Contexto avanzado
+
+**`CLAUDE.md` global de usuario.** Hay un archivo de instrucciones permanentes
+en `~/.claude/CLAUDE.md` que aplica a todos los proyectos y que moldeo como se
+escribio esta documentacion mas que cualquier prompt individual. Las reglas que
+dejaron marca visible en el resultado:
+
+- *"Una decision sin un numero no es una decision: es un miedo."* Es la razon de
+  que la seccion 3.1 compare el conteo de transferencias contra la cota `n-1` en
+  vez de afirmar que el algoritmo "es eficiente", y de que la decision de no
+  materializar saldos (5.2) quede condicionada a un perfilado que todavia no se
+  hizo.
+- *"Nunca inventar el motivo."* De ahi que los supuestos esten marcados como
+  supuestos — el stack de la seccion 9 es el caso mas claro — en lugar de
+  presentarse como decisiones cerradas.
+- *"Un chequeo que acusa lo que estaba bien se apaga a la semana."* Es el origen
+  de la distincion, en la seccion 7, entre invariante violada (`500` con detalle
+  y sin plan) y ausencia de datos.
+
+**Documento de traspaso entre sesiones.** El trabajo se hizo en varias sesiones.
+El estado vive en un `HANDOFF.md` excluido del control de versiones via
+`.git/info/exclude`, para que el contexto sobreviva al cierre de una sesion sin
+ensuciar la rama de entrega.
+
+**Sin `CLAUDE.md` de proyecto ni skills propias todavia.** No hay un `.claude/`
+en el repositorio. Para la Entrega 2 si tiene sentido: la regla de que
+`packages/domain` no importe nada de infraestructura (seccion 5.4) es
+exactamente el tipo de regla que conviene volver un chequeo ejecutable y no una
+linea de documentacion que nadie corre.
+
+> **Pendiente de completar por el alumno:** si durante la Entrega 1 se usaron
+> skills, subagentes o system prompts especificos que no figuran arriba, hay que
+> agregarlos aca. Este registro solo documenta lo que quedo verificable en el
+> repositorio y en la configuracion; no se infirio nada.
+
+---
+
+## Mapa: que prompt produjo que seccion
+
+| Prompt | Seccion del Readme |
+|---|---|
+| 1. Eleccion del dominio | 0, 1 |
+| 2. Afilar el problema | 1, 2 |
+| 3. Algoritmo de minimizacion | 3.1 |
+| 4. Aritmetica de dinero | 3.2 |
+| 5. Historias de usuario | 4 |
+| 6. Ingesta con LLM | 3.3, 5.1 |
+| 7. Modelo de datos | 6 |
+| 8. Revision adversarial | 7, 8 |
 
 ---
 
@@ -29,7 +96,7 @@ depender de ninguna API externa. Las otras dos, sin la integracion, son maquetas
 **Correccion manual.** La propuesta original incluia billetera interna con saldo.
 Lo saque: tener custodia de fondos convierte el proyecto en un producto regulado
 y no agrega nada al problema interesante. Quedo documentado como decision explicita
-en la seccion 7 del README.
+en la seccion 8 del README.
 
 ---
 
@@ -179,7 +246,7 @@ mencionada en los tickets; (2) no se decia que pasa cuando la verificacion de
 invariantes falla — solo que se verifica; (3) no habia nada sobre el manejo de la
 moneda en un grupo donde alguien paga en otra divisa.
 
-**Que cambio.** Agregue la seccion 6.bis completa con los endpoints y las dos
+**Que cambio.** Agregue la seccion 7 completa con los endpoints y las dos
 respuestas que importan. Agregue el comportamiento explicito ante invariante
 violada: `500` con detalle y sin plan. Y la multi-moneda quedo listada
 explicitamente como fuera de alcance, que es distinto de no haberla pensado.
