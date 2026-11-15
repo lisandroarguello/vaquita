@@ -437,7 +437,7 @@ sequenceDiagram
 
 ```
 vaquita/
-├─ backend/                   AdonisJS 7
+├─ backend/                   AdonisJS 6.18
 │  ├─ app/
 │  │  ├─ controllers/         Orquestan la peticion: reciben, delegan, responden
 │  │  ├─ models/              Lucid. La fila en la base de datos
@@ -457,6 +457,13 @@ vaquita/
 
 La convencion de carpetas es la de AdonisJS, salvo por `app/domain/`, que no es
 una capa del framework.
+
+**Sobre la version:** el prework del Modulo 1 menciona AdonisJS 7, pero el
+starter kit oficial (`adonisjs/api-starter-kit`, rama `main`) instala
+`@adonisjs/core` 6.18, que es lo que corre este proyecto. En npm la version
+`latest` ya es 7.6. Se deja en 6.18 a proposito: es la que el starter kit da por
+buena, y migrar de major no aporta nada al producto. Queda anotado por si el
+material del curso asume APIs de la 7.
 
 El limite que importa es `app/domain/`: no importa nada de `controllers/`, de
 `models/` ni del framework. Esa regla es lo que hace que la parte riesgosa del
@@ -767,7 +774,7 @@ contable, grupos de mas de 15 personas, app movil nativa, e integracion bancaria
 
 | Capa | Eleccion | Por que |
 |---|---|---|
-| Backend | Node + AdonisJS 7 (TypeScript) | Baterias incluidas: routing, ORM, validacion y auth ya resueltos. No gasto tiempo del proyecto en cablear infraestructura |
+| Backend | Node 24 + AdonisJS 6.18 (TypeScript) | Baterias incluidas: routing, ORM, validacion y auth ya resueltos. No gasto tiempo del proyecto en cablear infraestructura |
 | Acceso a datos | Lucid (el ORM de Adonis) | Migraciones versionadas en codigo. El esquema nunca se edita a mano |
 | Validacion de entrada | VineJS (el validador de Adonis) | Define la forma de los datos de entrada en la frontera HTTP, donde corresponde |
 | Base de datos | PostgreSQL | Restricciones y triggers de verdad; es donde viven las invariantes de dinero |
@@ -779,7 +786,7 @@ contable, grupos de mas de 15 personas, app movil nativa, e integracion bancaria
 | Despliegue | Contenedor + Postgres gestionado | Reproducible en local y en nube sin cambios de codigo |
 
 **Por que este stack y no otro.** Es el mismo que usa FlowSync, el proyecto sobre
-el que se trabaja durante todo el master: Node + AdonisJS 7 en el backend, React
+el que se trabaja durante todo el master: Node + AdonisJS en el backend, React
 19 + Vite + shadcn/ui en el frontend, TypeScript de punta a punta. La eleccion es
 deliberada: todo el material, los ejercicios y los prompts del curso estan sobre
 este stack, asi que el criterio que fui construyendo se aplica sin traduccion.
