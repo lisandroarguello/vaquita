@@ -52,13 +52,60 @@ test.group('Money | construccion desde texto', () => {
 
   test('rechaza mas de dos decimales en vez de redondear', ({ assert }) => {
     // Redondear en silencio es como se pierde un centavo sin que nadie se entere.
-    assert.throws(() => Money.fromDecimalString('10.555'), /dos decimales/i)
+    assert.throws(() => Money.fromDecimalString('10.5555'), /dos decimales/i)
   })
 
   test('rechaza texto que no es un monto', ({ assert }) => {
     assert.throws(() => Money.fromDecimalString('abc'), /monto/i)
     assert.throws(() => Money.fromDecimalString(''), /monto/i)
     assert.throws(() => Money.fromDecimalString('10.5.3'), /monto/i)
+  })
+})
+
+/**
+ * El punto es separador de miles en Argentina y separador decimal en formato
+ * ingles. "1.500" significa mil quinientos para quien lo escribe y un peso con
+ * cincuenta para un parser ingenuo. Adivinar es peor que fallar, pero fallar
+ * acusando algo que no pasó ("tiene mas de dos decimales") es casi tan malo:
+ * el mensaje tiene que nombrar la ambiguedad real y decir como salir de ella.
+ */
+test.group('Money | formato de miles argentino', () => {
+  test('la coma decimal desambigua el punto de miles', ({ assert }) => {
+    assert.equal(Money.fromDecimalString('1.234,56').cents, 123456)
+    assert.equal(Money.fromDecimalString('1.234.567,89').cents, 123456789)
+    assert.equal(Money.fromDecimalString('-1.234,56').cents, -123456)
+  })
+
+  test('dos o mas grupos de miles no son ambiguos sin coma', ({ assert }) => {
+    // "1.234.567" no puede ser un decimal: ningun decimal tiene dos puntos.
+    assert.equal(Money.fromDecimalString('1.234.567').cents, 123456700)
+  })
+
+  test('un solo grupo de tres cifras es ambiguo y se rechaza nombrandolo', ({ assert }) => {
+    for (const ambiguo of ['1.500', '10.555', '123.456']) {
+      assert.throws(() => Money.fromDecimalString(ambiguo), /ambigu/i)
+    }
+  })
+
+  test('el error de ambiguedad sugiere como escribirlo', ({ assert }) => {
+    try {
+      Money.fromDecimalString('1.500')
+      assert.fail('deberia haber lanzado')
+    } catch (error: any) {
+      assert.match(error.message, /1500/)
+      assert.match(error.message, /1\.500,00/)
+    }
+  })
+
+  test('uno y dos decimales siguen sin ser ambiguos', ({ assert }) => {
+    assert.equal(Money.fromDecimalString('1.5').cents, 150)
+    assert.equal(Money.fromDecimalString('1.50').cents, 150)
+    assert.equal(Money.fromDecimalString('1234.56').cents, 123456)
+  })
+
+  test('rechaza grupos de miles mal formados', ({ assert }) => {
+    assert.throws(() => Money.fromDecimalString('1.23,45'), /monto/i)
+    assert.throws(() => Money.fromDecimalString('12.34.567'), /monto/i)
   })
 })
 
