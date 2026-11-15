@@ -50,7 +50,7 @@ ensuciar la rama de entrega.
 
 **Sin `CLAUDE.md` de proyecto ni skills propias todavia.** No hay un `.claude/`
 en el repositorio. Para la Entrega 2 si tiene sentido: la regla de que
-`packages/domain` no importe nada de infraestructura (seccion 5.4) es
+`app/domain/` no importe nada del framework (seccion 5.4) es
 exactamente el tipo de regla que conviene volver un chequeo ejecutable y no una
 linea de documentacion que nadie corre.
 

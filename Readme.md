@@ -437,21 +437,29 @@ sequenceDiagram
 
 ```
 vaquita/
-├─ apps/
-│  ├─ api/            Node/TypeScript. Endpoints, auth, validacion de entrada.
-│  └─ web/            SPA React. Las cuatro pantallas de 2.1.
-├─ packages/
-│  ├─ domain/         Reparto y Minimizador. Funciones puras, sin dependencias.
-│  ├─ ingest/         Texto/imagen -> borrador validado. Frontera dura al LLM.
-│  └─ schema/         Tipos compartidos entre api y web.
-├─ db/
-│  ├─ migrations/     Migraciones versionadas.
-│  └─ seed/           Datos de prueba generados, nunca reales.
-└─ tests/             E2E del flujo principal.
+├─ backend/                   AdonisJS 7
+│  ├─ app/
+│  │  ├─ controllers/         Orquestan la peticion: reciben, delegan, responden
+│  │  ├─ models/              Lucid. La fila en la base de datos
+│  │  ├─ validators/          VineJS. Forma de los datos de entrada
+│  │  ├─ transformers/        Que se devuelve al cliente y que no
+│  │  └─ domain/              Reparto y Minimizador. Funciones puras
+│  ├─ database/
+│  │  ├─ migrations/          Cambios de esquema versionados
+│  │  └─ seeders/             Datos de prueba generados, nunca reales
+│  ├─ ingest/                 Texto/imagen -> borrador validado (Zod)
+│  ├─ start/routes.ts         Que URL responde a que accion
+│  └─ tests/                  Japa: integracion y E2E
+└─ frontend/                  React 19 + Vite
+   ├─ src/components/ui/      shadcn/ui, copiado al repo
+   └─ src/pages/              Las cuatro pantallas de 2.1
 ```
 
-El limite que importa es `packages/domain`: no importa nada de `apps/`, de `db/`
-ni de ningun framework. Esa regla es lo que hace que la parte riesgosa del
+La convencion de carpetas es la de AdonisJS, salvo por `app/domain/`, que no es
+una capa del framework.
+
+El limite que importa es `app/domain/`: no importa nada de `controllers/`, de
+`models/` ni del framework. Esa regla es lo que hace que la parte riesgosa del
 sistema se pueda testear sin levantar infraestructura, y es la unica que vale la
 pena hacer cumplir con un chequeo automatico.
 
@@ -502,7 +510,7 @@ y validacion de tamaño y tipo de archivo en la subida.
 
 La densidad de tests no se reparte pareja. Va donde esta el riesgo:
 
-**Unitarios, sobre `packages/domain`.** Es el grueso. Dos propiedades que se
+**Unitarios, sobre `app/domain/`.** Es el grueso. Dos propiedades que se
 verifican en cada caso generado, no solo en ejemplos elegidos a mano:
 
 - la suma de los saldos despues de aplicar el plan es exactamente cero;
@@ -759,19 +767,35 @@ contable, grupos de mas de 15 personas, app movil nativa, e integracion bancaria
 
 | Capa | Eleccion | Por que |
 |---|---|---|
-| Frontend | React 19 + TypeScript + Vite | Stack conocido; el tiempo va al producto, no a aprender la herramienta |
-| Estilos | Tailwind CSS v4 + shadcn/ui | Componentes accesibles sin escribir un sistema de diseño desde cero |
-| Backend | Node 22 + TypeScript (Fastify) | Un solo lenguaje en todo el stack; tipos compartidos entre cliente y servidor |
-| Validacion | Zod | El mismo esquema valida el request HTTP y la salida del LLM |
-| Base de datos | PostgreSQL 17 | Restricciones y triggers de verdad; es donde viven las invariantes de dinero |
-| Acceso a datos | Drizzle ORM | Migraciones versionadas y SQL legible cuando hace falta bajar |
-| Tests | Vitest + Testcontainers | Unitarios sobre el dominio puro; integracion contra Postgres real |
+| Backend | Node + AdonisJS 7 (TypeScript) | Baterias incluidas: routing, ORM, validacion y auth ya resueltos. No gasto tiempo del proyecto en cablear infraestructura |
+| Acceso a datos | Lucid (el ORM de Adonis) | Migraciones versionadas en codigo. El esquema nunca se edita a mano |
+| Validacion de entrada | VineJS (el validador de Adonis) | Define la forma de los datos de entrada en la frontera HTTP, donde corresponde |
+| Base de datos | PostgreSQL | Restricciones y triggers de verdad; es donde viven las invariantes de dinero |
+| Frontend | React 19 + TypeScript + Vite | Arranque instantaneo en desarrollo; el estandar de facto desde que Create React App quedo descontinuado |
+| Estilos | Tailwind CSS + shadcn/ui | shadcn no se instala como dependencia: los componentes se copian al repo y se editan libremente |
+| Validacion de la salida del LLM | Zod | VineJS valida la frontera HTTP; la salida del modelo es otro problema y se declara como esquema aparte |
+| Tests | Japa (el runner de Adonis) | Integracion y E2E sobre la app. El dominio es codigo puro: no depende del runner |
 | LLM | API de Claude con salida estructurada | El esquema de salida se declara y se valida; la ingesta falla de forma limpia |
 | Despliegue | Contenedor + Postgres gestionado | Reproducible en local y en nube sin cambios de codigo |
 
-**Nota sobre el stack:** la eleccion asume continuidad con lo que ya vengo usando.
-Si el stack de trabajo fuera otro, el cambio es mecanico — el dominio (reparto y
-minimizacion) es codigo puro sin dependencias de framework, y se porta tal cual.
+**Por que este stack y no otro.** Es el mismo que usa FlowSync, el proyecto sobre
+el que se trabaja durante todo el master: Node + AdonisJS 7 en el backend, React
+19 + Vite + shadcn/ui en el frontend, TypeScript de punta a punta. La eleccion es
+deliberada: todo el material, los ejercicios y los prompts del curso estan sobre
+este stack, asi que el criterio que fui construyendo se aplica sin traduccion.
+
+Conviene ser preciso sobre que significa eso: **el curso no impone un stack.** La
+Leccion 1 del Proyecto Final dice que la tecnologia es libre y que no hay
+restriccion. El stack de FlowSync es una eleccion pedagogica — Node baja la
+barrera de entrada para una audiencia mixta, y TypeScript de punta a punta porque
+los lenguajes tipados le dan mejores guardarraíles a un LLM. Adoptarlo aca es una
+decision de conveniencia, no un requisito que haya que cumplir.
+
+**Lo que no depende de esta eleccion.** El dominio — reparto en centavos y
+minimizacion de transferencias — es codigo puro sin dependencias de framework. Si
+el stack cambiara, se porta tal cual. Esa independencia es deliberada y es lo que
+permite empezar a escribir la parte riesgosa del sistema antes de tener una sola
+ruta HTTP levantada.
 
 ---
 
