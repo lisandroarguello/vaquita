@@ -1,10 +1,6 @@
 import { test } from '@japa/runner'
 import { Money } from '#domain/money'
-import {
-  repartirPorMontosExactos,
-  repartirPorPorcentajes,
-  porcentaje,
-} from '#domain/reparto'
+import { repartirPorMontosExactos, repartirPorPorcentajes, porcentaje } from '#domain/reparto'
 
 /**
  * DOM-3 — Reparto por montos exactos y por porcentajes.
