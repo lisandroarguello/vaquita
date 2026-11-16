@@ -64,6 +64,65 @@ export interface Transferencia {
  * parece un plan distinto.
  */
 export function minimizarExacto(saldos: Saldo[]): Transferencia[] {
+  const activos = saldosActivos(saldos)
+  if (activos.length === 0) return []
+
+  if (activos.length > LIMITE_EXACTO) {
+    throw new RangeError(
+      `El metodo exacto resuelve hasta ${LIMITE_EXACTO} saldos distintos de cero y recibi ` +
+        `${activos.length}; para grupos mas grandes va el minimizador greedy de DOM-6, que ` +
+        `da un plan aproximado de a lo sumo n-1 transferencias`
+    )
+  }
+
+  const montos = activos.map((s) => s.monto.cents)
+  const grupos = particionEnGruposQueSumanCero(montos)
+
+  return grupos.flatMap((grupo) => emparejarMayores(grupo.map((i) => activos[i])))
+}
+
+/**
+ * DOM-6 — Calcula un plan de cierre **aproximado**, sin limite de tamaño.
+ *
+ * Emparejar iterativamente al que mas debe con al que mas le deben, hasta que
+ * no quede nadie con saldo. Es exactamente lo que `minimizarExacto` hace
+ * adentro de cada grupo de su particion; la diferencia —toda la diferencia—
+ * es que aca no hay particion: el emparejamiento se aplica al grupo entero.
+ *
+ * Que garantiza:
+ *
+ *   1. **Nunca mas de n-1 transferencias**, con n los saldos no nulos. Cada
+ *      transferencia mueve el minimo entre lo que uno debe y lo que al otro le
+ *      deben, asi que deja en cero al menos a uno de los dos; la ultima deja a
+ *      dos. Con n personas eso son a lo sumo n-1 pasos.
+ *   2. **Aplicar el plan deja todos los saldos en cero**, porque el bucle no
+ *      corta hasta que no queda ni un acreedor ni un deudor, y con la suma en
+ *      cero esas dos condiciones se cumplen juntas.
+ *
+ * Que **no** garantiza: el optimo. El exacto parte el grupo en subconjuntos
+ * que suman cero y los cierra aparte; el greedy puede emparejar a dos personas
+ * de subconjuntos distintos y partir los dos al medio, gastando una
+ * transferencia de mas. Hay un test que fija un caso asi a proposito
+ * (`{+50, -50}` junto a `{+60, -30, -30}`: 3 contra 4), porque una
+ * aproximacion que no esta documentada como aproximacion se lee como exacta.
+ *
+ * Por que no es "el exacto pero peor": para n > 12 el exacto no existe como
+ * opcion —3^20 son 3.400 millones de pasos— asi que la comparacion real no es
+ * contra el plan minimo sino contra no tener plan.
+ */
+export function minimizarGreedy(saldos: Saldo[]): Transferencia[] {
+  return emparejarMayores(saldosActivos(saldos))
+}
+
+/**
+ * Las dos puertas que comparten los dos minimizadores, y los saldos que
+ * efectivamente participan.
+ *
+ * Un plan se arma sobre un grupo, no sobre una lista cualquiera: ids repetidos
+ * harian que una misma persona figure dos veces con saldos distintos, y una
+ * suma que no da cero no tiene ningun plan interno posible.
+ */
+function saldosActivos(saldos: Saldo[]): Saldo[] {
   const vistos = new Set<IntegranteId>()
   for (const saldo of saldos) {
     if (vistos.has(saldo.integrante)) {
@@ -90,21 +149,7 @@ export function minimizarExacto(saldos: Saldo[]): Transferencia[] {
   }
 
   // Quien ya esta en cero no participa: no debe ni le deben.
-  const activos = saldos.filter((s) => !s.monto.isZero())
-  if (activos.length === 0) return []
-
-  if (activos.length > LIMITE_EXACTO) {
-    throw new RangeError(
-      `El metodo exacto resuelve hasta ${LIMITE_EXACTO} saldos distintos de cero y recibi ` +
-        `${activos.length}; para grupos mas grandes va el minimizador greedy de DOM-6, que ` +
-        `da un plan aproximado de a lo sumo n-1 transferencias`
-    )
-  }
-
-  const montos = activos.map((s) => s.monto.cents)
-  const grupos = particionEnGruposQueSumanCero(montos)
-
-  return grupos.flatMap((grupo) => cerrarGrupo(grupo.map((i) => activos[i])))
+  return saldos.filter((s) => !s.monto.isZero())
 }
 
 /**
@@ -178,15 +223,29 @@ function particionEnGruposQueSumanCero(montos: number[]): number[][] {
 }
 
 /**
- * Cierra un grupo cuyos saldos suman cero, emparejando al que mas debe con al
- * que mas le deben.
+ * Cierra un conjunto de saldos que suman cero, emparejando iterativamente al
+ * que mas debe con al que mas le deben.
  *
- * Dentro de un grupo que ya no se puede partir, cualquier emparejamiento llega
- * a k-1 transferencias — cada una deja a alguien en cero — asi que lo unico que
- * se elige aca es cual, y se elige el que da los montos mas grandes primero,
- * que es el que una persona leeria como "lo importante arriba".
+ * **Su unica precondicion es que los saldos sumen cero.** No supone que el
+ * conjunto sea indivisible ni que venga de una particion: los dos llamadores
+ * —el exacto, que le pasa una parte, y el greedy, que le pasa el grupo
+ * entero— le dan listas de origen distinto y la funcion no distingue. Los
+ * saldos en cero que se le cuelen quedan afuera solos, porque no son ni
+ * acreedores ni deudores.
+ *
+ * De ahi salen las dos garantias de las que vive DOM-6. Cada vuelta transfiere
+ * el minimo entre las dos puntas, asi que deja en cero al menos a una persona
+ * — **a lo sumo k-1 transferencias** para k saldos no nulos, y la ultima cierra
+ * a dos. Y el bucle no corta hasta que no queda acreedor o no queda deudor:
+ * con la suma en cero, no quedar uno implica no quedar el otro, de modo que
+ * **todos terminan en cero**.
+ *
+ * Elegir las puntas mas grandes no cambia esa cuenta: cualquier emparejamiento
+ * la cumple. Lo que cambia es que los montos mas grandes salen primero, que es
+ * lo que una persona leeria como "lo importante arriba". El orden de entrada
+ * desempata, para que dos saldos iguales no dependan de como ordene el motor.
  */
-function cerrarGrupo(grupo: Saldo[]): Transferencia[] {
+function emparejarMayores(grupo: Saldo[]): Transferencia[] {
   const pendientes = grupo.map((saldo, orden) => ({
     integrante: saldo.integrante,
     cents: saldo.monto.cents,
