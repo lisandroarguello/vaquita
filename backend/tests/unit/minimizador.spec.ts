@@ -452,12 +452,18 @@ test.group('minimizador | lo que no puede pasar en silencio', () => {
       assert.fail('deberia haber lanzado')
     } catch (error: any) {
       assert.match(error.message, /no suman cero/i)
-      assert.match(error.message, /0\.01/)
+      // Aca sobra un centavo. La palabra no es cosmetica: manda a buscar un
+      // gasto de mas o uno de menos, que son dos busquedas distintas. Sin esta
+      // asercion, dar vuelta las dos palabras no rompia ningun test — salio de
+      // un mutante que sobrevivia a los specs de DOM-5 y DOM-6.
+      assert.match(error.message, /sobran \$0\.01/)
     }
   })
 
   test('no usa tolerancia: un centavo de diferencia ya es un error', ({ assert }) => {
+    // Y aca falta uno: el otro signo del mensaje.
     assert.throws(() => minimizarExacto(saldosDe([1, -2, 0])), /no suman cero/i)
+    assert.throws(() => minimizarExacto(saldosDe([1, -2, 0])), /faltan \$0\.01/)
   })
 
   test('rechaza un grupo mas grande que el limite del metodo exacto', ({ assert }) => {

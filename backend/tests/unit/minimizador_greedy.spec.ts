@@ -372,12 +372,16 @@ test.group('minimizador greedy | lo que no puede pasar en silencio', () => {
       assert.fail('deberia haber lanzado')
     } catch (error: any) {
       assert.match(error.message, /no suman cero/i)
-      assert.match(error.message, /0\.01/)
+      // Aca sobra un centavo; el test de abajo cubre el otro signo. Sin estas
+      // dos aserciones, dar vuelta `faltan`/`sobran` en `saldosActivos` no
+      // rompia ningun test de DOM-5 ni de DOM-6.
+      assert.match(error.message, /sobran \$0\.01/)
     }
   })
 
   test('no usa tolerancia: un centavo de diferencia ya es un error', ({ assert }) => {
     assert.throws(() => minimizarGreedy(saldosDe([1, -2, 0])), /no suman cero/i)
+    assert.throws(() => minimizarGreedy(saldosDe([1, -2, 0])), /faltan \$0\.01/)
   })
 
   test('rechaza un integrante repetido en los saldos', ({ assert }) => {
