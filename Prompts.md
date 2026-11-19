@@ -15,14 +15,14 @@ corregir a mano.
 |---|---|---|---|
 | Analisis y diseño | Claude Code | Opus | Definir el problema, discutir alcance, revision adversarial |
 | Documentacion | Claude Code | Opus | Redactar Readme y Prompts, diagramas Mermaid |
-| Implementacion | Claude Code | — | Pendiente: Entrega 2 |
-| Pruebas | Claude Code | — | Pendiente: Entrega 2 |
+| Implementacion | Claude Code | Opus | Dominio y esquema, con tests antes que el codigo |
+| Pruebas | Claude Code | Opus | Tests de propiedad, oraculos independientes y mutantes |
 | Despliegue | — | — | Opcional segun las reglas del curso; sin decidir |
 | Mantenimiento | — | — | Fuera del alcance del MVP |
 
-La Entrega 1 es documentacion, asi que todo el trabajo registrado aqui cae en
-analisis, diseño y documentacion. Las fases de implementacion y pruebas se
-completan en la Entrega 2.
+La Entrega 1 es documentacion, asi que ese trabajo cae en analisis, diseño y
+documentacion. La Entrega 2 agrega implementacion y pruebas, registradas en la
+Parte II de este documento.
 
 ### Contexto avanzado
 
@@ -49,17 +49,35 @@ El estado vive en un `HANDOFF.md` excluido del control de versiones via
 ensuciar la rama de entrega.
 
 **Sin `CLAUDE.md` de proyecto ni skills propias todavia.** No hay un `.claude/`
-en el repositorio. Para la Entrega 2 si tiene sentido: la regla de que
-`app/domain/` no importe nada del framework (seccion 5.4) es
-exactamente el tipo de regla que conviene volver un chequeo ejecutable y no una
-linea de documentacion que nadie corre.
+en el repositorio. La regla de que `app/domain/` no importe nada del framework
+(seccion 5.4) sigue siendo exactamente el tipo de regla que conviene volver un
+chequeo ejecutable y no una linea de documentacion que nadie corre: hoy se
+sostiene sola porque el dominio se escribio antes que cualquier ruta HTTP, pero
+nada la verifica.
 
-> **Pendiente de completar por el alumno:** si durante la Entrega 1 se usaron
-> skills, subagentes o system prompts especificos que no figuran arriba, hay que
-> agregarlos aca. Este registro solo documenta lo que quedo verificable en el
-> repositorio y en la configuracion; no se infirio nada.
+**Skills, subagentes y MCP: lo que efectivamente se uso.** Este bloque quedo
+pendiente en la Entrega 1 y se cerro revisando los transcripts de las cinco
+sesiones de trabajo, no de memoria.
+
+- **Skills: una, `built-in-browser`**, para leer la plataforma del curso —el feed
+  y la Leccion 1— cuando se fijaron el alcance y las fechas de entrega. Es la
+  unica que toco este proyecto. En el mismo directorio de sesiones aparece
+  tambien `diseno-con-mockups`, pero pertenece al trabajo de FlowSync de
+  septiembre y **no** a Vaquita; se aclara para no inflar el registro.
+- **Subagentes: ninguno, en ninguna sesion.** El trabajo es de un solo hilo, y
+  los tickets son chicos y secuenciales: delegar habria costado mas contexto del
+  que ahorraba.
+- **MCP: cuatro servidores**, todos para traer informacion de afuera y ninguno
+  para escribir codigo — navegador (plataforma del curso), Notion (la pagina del
+  proyecto), Gmail y Calendar (las fechas de entrega, que es lo que destrabo la
+  planificacion). Se consulto tambien **Graphify**, que no tiene este repositorio
+  indexado; eso se dijo en una linea y se siguio con lectura directa.
+- **System prompts: el `CLAUDE.md` global de arriba.** No hay `CLAUDE.md` de
+  proyecto ni skills propias todavia.
 
 ---
+
+# Parte I — Entrega 1: documentacion
 
 ## Mapa: que prompt produjo que seccion
 
@@ -270,3 +288,103 @@ literatura, y no una opinion.
 su id" a la regla del centavo sobrante. Dos palabras que son la diferencia entre
 un reparto determinista y uno que cambia los saldos cada vez que alguien edita un
 gasto.
+
+---
+
+# Parte II — Entrega 2: implementacion
+
+Mismo criterio de registro: no se transcribe cada mensaje, se registra cada
+prompt que cambio el resultado, con que devolvio y que hubo que corregir.
+
+## Como fueron los prompts de esta parte, y por que
+
+Lo primero que se nota al ponerlos uno al lado del otro es que **se fueron
+achicando**. El de DOM-4 tiene diez lineas; el de DAT-1 es *"arranca con
+DAT-1"*. No es que el trabajo se volviera mas facil: el metodo se mudo al
+`HANDOFF.md`, que cada sesion lee antes de tocar nada. El prompt dejo de llevar
+las reglas y paso a llevar solo lo propio del ticket.
+
+Lo que si crecio fue la **lista de cosas que ya salieron mal** — de cinco a
+doce. Esa lista es el verdadero prompt de este proyecto: cada entrada es un
+error que costo caro una vez y que vuelve a estar a mano la proxima.
+
+El prompt de DOM-7, el mas largo de la Entrega 2, muestra la forma completa:
+
+> Arranca con DOM-7, el verificador de invariantes del plan: dado un plan y los
+> saldos de los que salio, decir si cierra. [...]
+>
+> **Esto NO se escribe de cero:** la verificacion ya existe repartida en tres
+> lados. [...] Mira los tres y decidi que se extrae y que no mirando el codigo,
+> no asumiendo.
+>
+> **El riesgo propio de este ticket:** si el verificador termina siendo el mismo
+> codigo que los tests usan para chequear los planes, los tests dejan de ser
+> independientes de lo que verifican y pasan a confirmarse solos. [...] Decidi
+> si los specs pasan a usar el verificador o se quedan con su helper, y escribi
+> por que.
+>
+> Sosten el metodo: tests antes que la implementacion, y despues mutantes sobre
+> lo escrito.
+
+Tiene las tres partes que dieron resultado cada vez: **que hacer**, **que mirar
+antes de decidir** (y la orden explicita de mirar el codigo y no suponer), y
+**cual es el riesgo propio de este ticket** — el que no se ve desde el enunciado.
+Nombrar el riesgo de antemano es lo que convierte una decision de diseño en algo
+que se defiende, en vez de algo que se descubre cuando ya esta escrito.
+
+## El metodo: tests primero, y despues romper el codigo a proposito
+
+Todos los tickets siguieron el mismo ciclo: escribir los tests, escribir la
+implementacion, y despues **mutantes** — romper la implementacion a proposito y
+verificar que los tests se den cuenta. No es ceremonia: **en los ocho tickets
+encontro algo cada vez**.
+
+| Ticket | Que devolvio el primer intento | Que hubo que corregir |
+|---|---|---|
+| DOM-1 `Money` | Centavos enteros, sin via publica desde `float` | Una asercion no verificaba lo que parecia verificar |
+| DOM-2 Reparto igual | Reparto con resto determinista | El verde no cubria montos negativos, donde `Math.floor` le cambia el signo al resto. Se agrego el parametro `desde`, que no pedia el ticket: sin el, el centavo que sobra cae siempre en la misma persona |
+| DOM-3 Exactos y % | Las dos formas de reparto | Reusar el parser de montos para porcentajes heredo una regla ajena: rechazaba "33.333" por ambiguo. Parser propio |
+| DOM-4 Saldos | Suma cero con test de propiedad | El arnes de mutantes estaba mintiendo (ver abajo) |
+| DOM-5 Minimizador exacto | DP sobre mascaras de bits | El test de propiedad era **vacuo**: los subconjuntos que suman cero no aparecen por azar, asi que los 400 casos no ejercitaban nada. Hubo que plantar la estructura y contarla |
+| DOM-6 Greedy | Emparejar mayor acreedor con mayor deudor | El desempate entre dos **deudores** iguales no lo verificaba nadie |
+| DOM-7 Verificador | `{ cierra, problemas }` sobre cualquier plan | Dos huecos reales: la palabra `faltan`/`sobran` no la verificaba nadie, y la membresia se chequeaba solo del lado del que paga |
+| DAT-1 Esquema | Siete tablas con claves, indices y `CHECK` | Un mutante sobrevivia **sin llegar a dispararse**: el test repetia el mismo monto, asi que una unicidad de mas rechazaba igual la fila |
+
+## Lo que aprendi de este ciclo
+
+**El arnes de mutantes mintio tres veces, y las tres se leian como buenas
+noticias.** `node ace test --groups` sale con codigo 1 aunque todo pase, asi que
+un arnes que lee el exit code marca todos los mutantes como muertos. `--files
+minimizador.spec` corre cero tests e imprime `NO TESTS EXECUTED`, que un arnes
+que solo busca `FAILED` cuenta como sobreviviente. Y una sustitucion de varias
+lineas que no matcheaba dejaba el codigo **sin mutar**, y el verde se leia como
+"el mutante sobrevive" — la conclusion exactamente contraria.
+
+De ahi salio la regla que sostiene todo lo demas: **tres veredictos y no dos**.
+Muere, sobrevive, y **no pude mirar**. Un chequeo que no distingue "esta mal" de
+"no pude mirar" muestra lo segundo como "todo bien", y entonces no esta
+chequeando nada.
+
+**Un mutante que sobrevive no siempre es un hueco del test.** Paso dos veces, y
+las dos la lectura facil era la equivocada. En DOM-6 un mutante que topeaba cada
+transferencia a $5000 sobrevivia porque el generador nunca producia montos mas
+altos: el tope **nunca llegaba a atar**. En DAT-1, una unicidad de mas rechazaba
+igual la fila porque el test repetia el mismo monto. En los dos casos la regla
+fue la misma: antes de arreglar un test, verificar que el mutante cambie el
+comportamiento **sobre los datos que el test genera de verdad**.
+
+**Comparar una implementacion contra si misma no prueba nada.** En DOM-5 el
+optimo se verifica contra un oraculo escrito a proposito distinto —enumeracion
+recursiva de particiones contra DP sobre mascaras—, y en DOM-7 los specs del
+minimizador se **quedaron con su helper duplicado** en vez de usar el
+verificador nuevo, para no perder esa independencia. Eso se decidio por escrito
+y despues se **midio**: el mutante que da vuelta `faltan`/`sobran` muere en los
+specs del minimizador y sobrevive en el del verificador, que es la prueba de que
+los dos no comparten codigo. Una decision de diseño afirmada en un docstring y
+una medida no son lo mismo.
+
+**Lo que mas rindio de todo fue un archivo que no esta versionado.** El
+`HANDOFF.md` arranco como una nota de traspaso entre sesiones y termino siendo
+el que sostiene el metodo: el estado, los comandos, y sobre todo la lista de
+doce cosas que ya salieron mal. Sin el, cada sesion nueva vuelve a tropezar con
+el exit code de `--groups`.

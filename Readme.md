@@ -433,7 +433,10 @@ sequenceDiagram
 
 ### 5.4 Estructura de ficheros
 
-> Plantilla oficial 2.3. Estructura comprometida; se materializa en la Entrega 2.
+> Plantilla oficial 2.3. Estructura comprometida. Al cierre de la Entrega 2
+> existen `app/domain/`, `database/migrations/` y `tests/` (unitarios del
+> dominio y de esquema contra Postgres); el resto —modelos, validadores,
+> `ingest/` y el frontend— sigue siendo estructura comprometida y no escrita.
 
 ```
 vaquita/
@@ -896,9 +899,10 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 
 ## 11. Como correr el proyecto
 
-> Esta seccion se completa con la Entrega 2, cuando exista codigo. El compromiso es
-> que clonar el repositorio, copiar `.env.example` a `.env` y ejecutar dos comandos
-> alcance para tener el sistema funcionando con datos de prueba.
+> El compromiso es que clonar el repositorio, copiar `.env.example` a `.env` y
+> ejecutar unos pocos comandos alcance para tener el sistema funcionando con
+> datos de prueba. Hoy eso vale para el dominio y la base; la parte de API y
+> frontend se agrega cuando exista.
 
 La base, hoy:
 
