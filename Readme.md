@@ -639,6 +639,20 @@ erDiagram
   `UNIQUE(group_id, user_id)` en `memberships`; `CHECK (from_membership <> to_membership)`
   en `payments`; y un trigger que verifica que la suma de `expense_shares` de un
   gasto sea igual a su `amount_cents`.
+- **Nada cruza de un grupo a otro, y lo sostiene la base.** Una clave foranea
+  simple de `expenses.paid_by` a `memberships` no alcanza: una membresia de otro
+  grupo tambien es una membresia que existe, y ese gasto moveria el saldo de un
+  tercero ajeno. Las referencias a integrantes son **compuestas** `(id,
+  group_id)`, lo que obliga a `expense_shares` a llevar su propio `group_id`
+  —repetido a proposito, y atado por las dos foraneas a la vez— aunque el
+  diagrama de arriba no lo muestre.
+- **`UNIQUE(expense_id, membership_id)`.** La misma persona dos veces en el
+  reparto de un gasto suma igual, asi que el trigger de integridad no la veria;
+  lo que cambia es su saldo, en silencio y al doble.
+- **Una parte de reparto puede ser cero pero no negativa.** El cero es
+  legitimo: repartir $0.01 entre tres da 1/0/0, y un porcentaje puede ser 0%.
+- **El mail se guarda en minuscula y la base lo exige.** Sin eso el `UNIQUE` no
+  sirve: la misma persona se registra dos veces con distinta capitalizacion.
 
 ---
 
@@ -885,6 +899,17 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 > Esta seccion se completa con la Entrega 2, cuando exista codigo. El compromiso es
 > que clonar el repositorio, copiar `.env.example` a `.env` y ejecutar dos comandos
 > alcance para tener el sistema funcionando con datos de prueba.
+
+La base, hoy:
+
+```bash
+cd backend
+cp .env.example .env          # y generar APP_KEY con: node ace generate:key
+docker compose up -d          # Postgres 17 en el puerto 5433
+node ace migration:run
+node ace test unit            # dominio, sin base
+node ace test database        # el esquema contra Postgres de verdad
+```
 
 Credenciales: el repositorio no contiene secretos. `.env.example` lista las
 variables requeridas, vacias. Los datos de desarrollo son generados, no reales.

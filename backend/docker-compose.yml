@@ -1,0 +1,29 @@
+# Postgres para desarrollo y para los tests de base (DAT-1 en adelante).
+#
+# El puerto es 5433 y no 5432 a proposito: si hay un Postgres instalado en la
+# maquina, el choque de puertos se ve como un error de autenticacion contra una
+# base que no es la del proyecto, que es muy confuso de diagnosticar.
+#
+#   docker compose up -d
+#   node ace migration:run
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: vaquita-pg
+    environment:
+      POSTGRES_USER: vaquita
+      POSTGRES_PASSWORD: vaquita
+      POSTGRES_DB: vaquita
+    ports:
+      - '5433:5432'
+    volumes:
+      - vaquita-pg:/var/lib/postgresql/data
+      - ./docker/crear-base-de-test.sql:/docker-entrypoint-initdb.d/crear-base-de-test.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vaquita -d vaquita']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  vaquita-pg:

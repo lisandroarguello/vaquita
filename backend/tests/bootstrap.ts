@@ -35,4 +35,13 @@ export const configureSuite: Config['configureSuite'] = (suite) => {
   if (['browser', 'functional', 'e2e'].includes(suite.name)) {
     return suite.setup(() => testUtils.httpServer().start())
   }
+
+  /**
+   * La suite de base corre las migraciones antes de todo y las revierte al
+   * final, contra el Postgres del `docker-compose.yml`. No levanta servidor
+   * HTTP: lo que se esta probando es el esquema, no la aplicacion.
+   */
+  if (suite.name === 'database') {
+    return suite.setup(() => testUtils.db().migrate())
+  }
 }
