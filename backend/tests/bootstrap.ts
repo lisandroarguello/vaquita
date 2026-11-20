@@ -33,7 +33,20 @@ export const runnerHooks: Required<Pick<Config, 'setup' | 'teardown'>> = {
  */
 export const configureSuite: Config['configureSuite'] = (suite) => {
   if (['browser', 'functional', 'e2e'].includes(suite.name)) {
-    return suite.setup(() => testUtils.httpServer().start())
+    /**
+     * La suite funcional necesita las dos cosas: el servidor HTTP y la base,
+     * porque prueba el camino entero —ruta, repositorio, dominio— y no una
+     * pieza sola. Es lo que el curso llama "al menos una funcionalidad de
+     * extremo a extremo".
+     */
+    return suite.setup(async () => {
+      const bajarBase = await testUtils.db().migrate()
+      const bajarServidor = await testUtils.httpServer().start()
+      return async () => {
+        await bajarServidor()
+        await bajarBase()
+      }
+    })
   }
 
   /**

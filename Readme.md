@@ -434,8 +434,9 @@ sequenceDiagram
 ### 5.4 Estructura de ficheros
 
 > Plantilla oficial 2.3. Estructura comprometida. Al cierre de la Entrega 2
-> existen `app/domain/`, `database/migrations/` y `tests/` (unitarios del
-> dominio y de esquema contra Postgres); el resto —modelos, validadores,
+> existen `app/domain/`, `app/repositories/`, `app/controllers/`,
+> `database/migrations/`, `database/seeders/` y `tests/` (dominio, esquema y
+> un camino de extremo a extremo); el resto —modelos Lucid, validadores,
 > `ingest/` y el frontend— sigue siendo estructura comprometida y no escrita.
 
 ```
@@ -856,8 +857,8 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 | **API-2** | CRUD de grupos y membresias | Solo el administrador agrega o desactiva integrantes |
 | **API-3** | Invitaciones por token | Vencimiento y limite de usos verificados |
 | **API-4** | Alta, edicion y anulacion de gastos | Los tres modos de division validados en el borde |
-| **API-5** | `GET /groups/{id}/balances` | Devuelve saldo por integrante; suma cero verificada |
-| **API-6** | `GET /groups/{id}/settlement` | Plan minimo con alias; 500 explicito si falla una invariante |
+| **API-5** | `GET /groups/{id}/balances` | Devuelve saldo por integrante; suma cero verificada — **hecho** (falta la autorizacion de API-8) |
+| **API-6** | `GET /groups/{id}/settlement` | Plan minimo con alias; 500 explicito si falla una invariante — **hecho** (idem) |
 | **API-7** | `POST /groups/{id}/payments` | Marcar transferencia como hecha; recalcula saldos |
 | **API-8** | Autorizacion por pertenencia al grupo | Un no integrante recibe 404, no 403 (no filtra existencia) |
 
@@ -904,16 +905,35 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 > datos de prueba. Hoy eso vale para el dominio y la base; la parte de API y
 > frontend se agrega cuando exista.
 
-La base, hoy:
+Hoy, de cero a ver el sistema funcionando:
 
 ```bash
 cd backend
-cp .env.example .env          # y generar APP_KEY con: node ace generate:key
+npm ci
+cp .env.example .env
+node ace generate:key
 docker compose up -d          # Postgres 17 en el puerto 5433
 node ace migration:run
-node ace test unit            # dominio, sin base
-node ace test database        # el esquema contra Postgres de verdad
+node ace db:seed              # un grupo de 6 con gastos, reproducible
+node ace serve
 ```
+
+Y entonces, el camino que define el producto:
+
+```bash
+curl http://localhost:3333/api/v1/groups/11111111-1111-4111-8111-111111111111/settlement
+```
+
+Los tres conjuntos de pruebas:
+
+```bash
+node ace test unit            # 160, dominio puro, sin base
+node ace test database        # 25, el esquema contra Postgres de verdad
+node ace test functional      # 6, de la ruta HTTP a la base y de vuelta
+```
+
+Los datos de la semilla son **generados, nunca reales**, y el grupo tiene un id
+fijo para que esa URL no cambie.
 
 Credenciales: el repositorio no contiene secretos. `.env.example` lista las
 variables requeridas, vacias. Los datos de desarrollo son generados, no reales.
