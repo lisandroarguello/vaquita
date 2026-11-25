@@ -1,5 +1,7 @@
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import db from '@adonisjs/lucid/services/db'
+import hash from '@adonisjs/core/services/hash'
+import env from '#start/env'
 import { Money } from '#domain/money'
 import {
   porcentaje,
@@ -47,12 +49,25 @@ export default class extends BaseSeeder {
     await db.rawQuery(`DELETE FROM groups WHERE id = ?`, [GRUPO])
     await db.rawQuery(`DELETE FROM users WHERE email LIKE '%@vaquita.example'`)
 
+    // La misma contraseña para los seis, hasheada de verdad.
+    //
+    // Antes se insertaba el literal 'no-es-un-hash', y con eso ninguna de las
+    // seis cuentas podia iniciar sesion: la semilla servia para leer saldos y
+    // para nada mas. Estas son las credenciales que el README publica para que
+    // el evaluador entre, asi que tienen que funcionar.
+    //
+    // No es un secreto —son datos generados en una base descartable— pero sale
+    // de env igual, para que el valor real de una demo publicada no quede
+    // escrito en el repositorio.
+    const clave = env.get('SEED_PASSWORD', 'vaquita-demo')
+    const claveHasheada = await hash.make(clave)
+
     const usuarios: string[] = []
     for (const persona of gente) {
       const { rows } = await db.rawQuery(
-        `INSERT INTO users (email, password_hash, display_name) VALUES (?, 'no-es-un-hash', ?)
+        `INSERT INTO users (email, password_hash, display_name) VALUES (?, ?, ?)
          RETURNING id`,
-        [`${persona.nombre.toLowerCase()}@vaquita.example`, persona.nombre]
+        [`${persona.nombre.toLowerCase()}@vaquita.example`, claveHasheada, persona.nombre]
       )
       usuarios.push(rows[0].id)
     }

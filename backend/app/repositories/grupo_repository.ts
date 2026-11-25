@@ -1,6 +1,7 @@
 import db from '@adonisjs/lucid/services/db'
 import { Money } from '#domain/money'
 import type { Gasto, IntegranteId, Pago } from '#domain/saldos'
+import { centsDe } from '#repositories/cents'
 
 /**
  * Lee un grupo entero de la base y lo entrega en los tipos del dominio.
@@ -27,25 +28,6 @@ export interface GrupoCargado {
   integrantes: IntegranteDelGrupo[]
   gastos: Gasto[]
   pagos: Pago[]
-}
-
-/**
- * Convierte un `BIGINT` de Postgres a centavos.
- *
- * El driver `pg` devuelve `int8` como **string**, no como number, porque un
- * bigint no entra siempre en un `Number`. Pasar eso directo a `Money.fromCents`
- * da un error raro y tardio; peor seria un `+valor` silencioso, que redondea sin
- * avisar arriba de 2^53. Aca se convierte en un solo lugar y se verifica.
- */
-function centsDe(valor: unknown, de: string): number {
-  const numero = typeof valor === 'string' ? Number(valor) : valor
-  if (typeof numero !== 'number' || !Number.isSafeInteger(numero)) {
-    throw new RangeError(
-      `${de} no es un entero seguro de centavos: recibi ${JSON.stringify(valor)}. ` +
-        `Un monto que no entra en un entero seguro no se puede sumar sin perder centavos`
-    )
-  }
-  return numero
 }
 
 /**
