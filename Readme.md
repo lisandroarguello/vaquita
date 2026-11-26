@@ -1070,6 +1070,21 @@ crear uno, y "no pudimos traerlos" invita a reintentar. Un listado que mostrara
 la lista vacia en los tres casos diria "no tenes grupos" cuando lo que paso es
 que se cayo la red, y la persona crearia de nuevo un grupo que ya tiene.
 
+**`sums_to_zero` no es decorativo** (FE-3). `GET /balances` expone la invariante
+de DOM-4: la suma de los saldos da cero. Si llegara en `false`, en el grupo
+falta o sobra plata, y la pantalla **no muestra ningun saldo** — ni con la
+advertencia al lado. Un numero en pantalla se copia a una transferencia de
+verdad y el aviso que lo acompaña no viaja con el. La cabecera del grupo se
+sigue viendo: lo que esta en duda son los saldos, no donde esta parada la
+persona.
+
+**Los dos errores de la vista de grupo no son el mismo.** Un grupo ajeno, uno
+inexistente y uno del que te desactivaron devuelven los tres `404`, a proposito,
+porque un `403` confirmaria que el grupo existe. Asi que ese caso dice "este
+grupo no esta disponible" y **no** ofrece reintentar — reintentar un 404 da 404.
+El `500`, en cambio, si es una falla y si deja reintentar, y el boton reintenta
+**las dos** consultas de la pantalla.
+
 **Tests del frontend:** Vitest con Testing Library sobre jsdom. El veredicto lo
 decide `frontend/scripts/correr-tests.sh` leyendo la salida, con los tres
 resultados del proyecto —pasa, falla y **no pude mirar**—, porque un `vitest
@@ -1077,7 +1092,7 @@ run` que no encuentra archivos que correr tambien puede terminar en 0 y un paso
 de CI que no corre nada se informaria verde.
 
 **Lo que todavia no esta:** Tailwind y shadcn/ui, que esta tabla promete para los
-estilos. Las pantallas de FE-1 y FE-2 son **HTML sin estilar**, a proposito: la
+estilos. Las pantallas de FE-1, FE-2 y FE-3 son **HTML sin estilar**, a proposito: la
 estructura y los estados estan resueltos y verificados por tests, y el estilo se
 aplica encima cuando haya mas pantallas sobre las que valga la pena definir un
 sistema. Es deuda declarada, no una pieza a medias escondida.
@@ -1146,7 +1161,7 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 |---|---|---|
 | **FE-1** ✅ | Autenticacion y rutas protegidas | Sin parpadeo al recargar con sesion valida |
 | **FE-2** ✅ | Lista de grupos y alta de grupo | Estados de vacio, carga y error cubiertos |
-| **FE-3** | Vista de grupo con saldos | Signo legible sin depender solo del color |
+| **FE-3** ✅ | Vista de grupo con saldos | Signo legible sin depender solo del color |
 | **FE-4** | Formulario de gasto con los tres modos | El error de suma se muestra en el campo que corresponde |
 | **FE-5** | Flujo de borrador desde texto o imagen | Los campos de confianza baja requieren confirmacion explicita |
 | **FE-6** | Pantalla de cierre | Cada transferencia con alias copiable y accion de marcar como hecha |
