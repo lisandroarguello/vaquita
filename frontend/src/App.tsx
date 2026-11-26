@@ -5,6 +5,7 @@ import { Cascara } from './rutas/Cascara'
 import { Entrar } from './paginas/Entrar'
 import { Registro } from './paginas/Registro'
 import { Grupos } from './paginas/Grupos'
+import { Grupo } from './paginas/Grupo'
 
 /**
  * El arbol de rutas.
@@ -28,6 +29,7 @@ export function App() {
         <Route element={<RutaProtegida />}>
           <Route element={<Cascara />}>
             <Route path="/" element={<Grupos />} />
+            <Route path="/grupos/:id" element={<Grupo />} />
           </Route>
         </Route>
 

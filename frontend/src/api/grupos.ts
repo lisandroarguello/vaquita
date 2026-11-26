@@ -53,3 +53,61 @@ export async function crearGrupo(name: string, currency = 'ARS'): Promise<GrupoC
   })
   return group
 }
+
+/* ------------------------------------------------------------------ */
+/* El detalle de un grupo y sus saldos (FE-3)                          */
+/* ------------------------------------------------------------------ */
+
+export interface Integrante {
+  id: string
+  display_name: string
+  role: 'admin' | 'member'
+  payout_alias: string | null
+  active: boolean
+}
+
+export interface DetalleDeGrupo {
+  group: GrupoCreado
+  /** Vienen **todos**, activos e inactivos: el historial de gastos nombra
+   * membresias de gente que ya no esta, y sin su fila no hay como ponerle
+   * nombre a un `membership_id`. */
+  members: Integrante[]
+  totals: {
+    expense_count: number
+    expense_total_cents: number
+    payment_count: number
+  }
+}
+
+export interface Saldo {
+  membership_id: string
+  display_name: string
+  balance_cents: number
+}
+
+export interface Balances {
+  currency: string
+  /** Cual de estos saldos es el de quien pregunta. Sin esto habria que cruzar
+   * `/me` contra la lista de integrantes, y dos personas del mismo grupo
+   * pueden llamarse igual. */
+  my_membership_id: string
+  balances: Saldo[]
+  /**
+   * La invariante de DOM-4 expuesta: la suma de los saldos da cero. **No es
+   * decorativo.** Si llega en `false`, en el grupo falta o sobra plata y la
+   * pantalla no muestra saldos: los mostraria para que alguien los copie a una
+   * transferencia de verdad por un monto equivocado.
+   */
+  sums_to_zero: boolean
+}
+
+export const claveDeGrupo = (id: string) => ['grupo', id] as const
+export const claveDeBalances = (id: string) => ['grupo', id, 'balances'] as const
+
+export function cargarGrupo(id: string): Promise<DetalleDeGrupo> {
+  return pedir<DetalleDeGrupo>(`/groups/${id}`)
+}
+
+export function cargarBalances(id: string): Promise<Balances> {
+  return pedir<Balances>(`/groups/${id}/balances`)
+}
