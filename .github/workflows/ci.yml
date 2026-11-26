@@ -100,3 +100,49 @@ jobs:
 
       - name: Tests extremo a extremo
         run: bash scripts/correr-suite.sh functional
+
+  # El frontend entra al CI como un job aparte: no necesita Postgres y corre en
+  # paralelo con el de arriba, asi que un error de tipos en una pantalla no
+  # espera los 35 segundos de las tres suites del backend para aparecer.
+  #
+  # Los tres pasos son los tres que pueden fallar por separado: los tipos, el
+  # comportamiento y el build. El build esta a proposito: `vite build` escribe en
+  # `backend/public`, que es la pieza del "un solo servicio", y un build roto no
+  # se nota corriendo tests.
+  frontend:
+    name: frontend — typecheck, tests y build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Igual que las suites del backend: el veredicto lo decide el envoltorio
+      # leyendo la salida, y termina en 2 cuando **no corrio ningun test**. Un
+      # paso de CI que no corre nada se informaria verde, que es la unica forma
+      # de que este job parezca cubrir el frontend sin cubrirlo.
+      - name: Tests del frontend
+        run: bash scripts/correr-tests.sh
+
+      - name: Build (deja el bundle en backend/public)
+        run: npm run build
+
+      # Que el build haya producido lo que el backend sirve, y no solo que el
+      # comando haya salido con exito.
+      - name: El bundle quedo donde el backend lo sirve
+        run: test -f ../backend/public/index.html && test -d ../backend/public/assets

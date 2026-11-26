@@ -170,8 +170,10 @@ test.group('cierre | el grupo de prueba se puede saldar de punta a punta', (grou
       .then((r) => r.assertStatus(404))
   })
 
-  test('la raiz responde, para saber que el servicio esta vivo', async ({ client }) => {
-    const respuesta = await client.get('/')
+  // Era `/`, que desde el andamiaje del frontend devuelve la pagina de React:
+  // el estado del servicio se mudo a `/api/v1/health` (ver `start/routes.ts`).
+  test('el estado del servicio responde, para saber que esta vivo', async ({ client }) => {
+    const respuesta = await client.get('/api/v1/health')
     respuesta.assertStatus(200)
     respuesta.assertBodyContains({ status: 'ok' })
   })

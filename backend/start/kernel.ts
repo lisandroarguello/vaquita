@@ -29,6 +29,7 @@ server.use([
   // Pone `ctx.auth` en el contexto. No autentica nada por si solo: eso lo hace
   // el middleware nombrado `auth` sobre las rutas que lo piden.
   () => import('@adonisjs/auth/initialize_auth_middleware'),
+  () => import('@adonisjs/static/static_middleware'),
 ])
 
 /**

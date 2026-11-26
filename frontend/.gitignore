@@ -1,0 +1,6 @@
+node_modules
+# El build no queda aca: va a `backend/public` (ver `vite.config.ts`). `dist`
+# aparece solo si alguien corre vite con otro `outDir`.
+dist
+*.local
+.vite

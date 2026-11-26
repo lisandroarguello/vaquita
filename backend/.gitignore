@@ -9,8 +9,11 @@ tmp
 .env.production.local
 .env.development.local
 
-# Frontend assets compiled code
+# El build del frontend. Vite lo deja aca (`frontend/vite.config.ts`) para que
+# Adonis lo sirva como un solo servicio; es producto de `npm run build` y no
+# codigo fuente, asi que no se versiona.
 public/assets
+public/index.html
 
 # Build tools specific
 npm-debug.log

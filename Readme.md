@@ -1023,6 +1023,47 @@ barrera de entrada para una audiencia mixta, y TypeScript de punta a punta porqu
 los lenguajes tipados le dan mejores guardarraíles a un LLM. Adoptarlo aca es una
 decision de conveniencia, no un requisito que haya que cumplir.
 
+### El andamiaje del frontend, y por que es un solo servicio
+
+El frontend vive en `frontend/`: Vite + React 19 + TypeScript, estado del
+servidor con **TanStack Query** y rutas con **React Router**.
+
+`frontend/vite.config.ts` tiene una sola linea que decide la forma del
+despliegue: `build.outDir: '../backend/public'`. El build no queda en
+`frontend/dist` sino en la carpeta que sirve `@adonisjs/static`, asi que en
+produccion **hay un solo servicio y un solo origen**: no hay CORS que
+configurar y el token no viaja entre dominios. Lo que no existe como archivo
+—`/grupos/abc`, que es una ruta del router del navegador— lo atiende una ruta
+comodin en `backend/start/routes.ts` devolviendo `index.html`; esa ruta
+pregunta explicitamente por el prefijo `/api` para que un endpoint mal escrito
+siga contestando el `404` JSON de la API y no una pagina HTML con estado 200.
+Por eso el estado del servicio vive en `GET /api/v1/health` y no en `/`, que
+ahora es del frontend.
+
+En desarrollo hay dos procesos —Vite en 5173 y Adonis en 3333— y el puente es
+`server.proxy`: el navegador ve un solo origen igual que en produccion, y
+`fetch('/api/v1/...')` es el mismo codigo de los dos lados. La alternativa, una
+variable con la URL del backend, obliga a que el codigo de produccion tenga una
+rama que solo se ejercita en desarrollo.
+
+**La sesion, sin parpadeo.** El token se guarda en memoria con copia en
+`localStorage`, y al arrancar la aplicacion lo rehidrata preguntando `GET /me`
+**detras de un gate de carga**: hasta que esa respuesta llega no se dibuja
+ninguna pantalla. Sin el gate, el primer render ocurre con "no se sabe quien
+sos", que es indistinguible de "no hay sesion": la ruta protegida redirige al
+login y la navegacion se deshace sola cuando `/me` contesta. Eso es el parpadeo
+que FE-1 no acepta, y el gate lo resuelve sin trucos.
+
+**Tests del frontend:** Vitest con Testing Library sobre jsdom. El veredicto lo
+decide `frontend/scripts/correr-tests.sh` leyendo la salida, con los tres
+resultados del proyecto —pasa, falla y **no pude mirar**—, porque un `vitest
+run` que no encuentra archivos que correr tambien puede terminar en 0 y un paso
+de CI que no corre nada se informaria verde.
+
+**Lo que todavia no esta:** Tailwind y shadcn/ui, que esta tabla promete para los
+estilos. El andamiaje trae HTML sin estilar a proposito: las pantallas que los
+van a usar son FE-2 y las que siguen.
+
 **Lo que no depende de esta eleccion.** El dominio — reparto en centavos y
 minimizacion de transferencias — es codigo puro sin dependencias de framework. Si
 el stack cambiara, se porta tal cual. Esa independencia es deliberada y es lo que
@@ -1085,7 +1126,7 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 
 | ID | Titulo | Criterio de hecho |
 |---|---|---|
-| **FE-1** | Autenticacion y rutas protegidas | Sin parpadeo al recargar con sesion valida |
+| **FE-1** ✅ | Autenticacion y rutas protegidas | Sin parpadeo al recargar con sesion valida |
 | **FE-2** | Lista de grupos y alta de grupo | Estados de vacio, carga y error cubiertos |
 | **FE-3** | Vista de grupo con saldos | Signo legible sin depender solo del color |
 | **FE-4** | Formulario de gasto con los tres modos | El error de suma se muestra en el campo que corresponde |
@@ -1109,8 +1150,9 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 
 > El compromiso es que clonar el repositorio, copiar `.env.example` a `.env` y
 > ejecutar unos pocos comandos alcance para tener el sistema funcionando con
-> datos de prueba. Hoy eso vale para el dominio y la base; la parte de API y
-> frontend se agrega cuando exista.
+> datos de prueba. Hoy eso vale para el dominio, la base, la API y el andamiaje
+> del frontend —login, registro y rutas protegidas—; las pantallas que faltan se
+> agregan cuando existan.
 
 Hoy, de cero a ver el sistema funcionando:
 
@@ -1131,13 +1173,38 @@ Y entonces, el camino que define el producto:
 curl http://localhost:3333/api/v1/groups/11111111-1111-4111-8111-111111111111/settlement
 ```
 
-Los tres conjuntos de pruebas:
+Y el frontend, en otra terminal:
 
 ```bash
-node ace test unit            # 160, dominio puro, sin base
-node ace test database        # 25, el esquema contra Postgres de verdad
-node ace test functional      # 6, de la ruta HTTP a la base y de vuelta
+cd frontend
+npm ci
+npm run dev                   # Vite en 5173, con /api proxeado a 3333
 ```
+
+Para ver el **unico servicio** —que es como se despliega— alcanza con construir
+el frontend y abrir el backend solo:
+
+```bash
+cd frontend && npm run build  # deja el bundle en backend/public
+cd ../backend && node ace serve
+# http://localhost:3333 sirve la aplicacion, y /api/v1 la API
+```
+
+Los conjuntos de pruebas:
+
+```bash
+cd backend
+bash scripts/correr-suite.sh unit        # 160, dominio puro, sin base
+bash scripts/correr-suite.sh database    # 49, el esquema contra Postgres
+bash scripts/correr-suite.sh functional  # 103, de la ruta HTTP a la base y de vuelta
+cd ../frontend
+bash scripts/correr-tests.sh             # 20, las pantallas sobre jsdom
+```
+
+Los envoltorios existen porque el veredicto se lee de la salida y no del codigo
+de salida, que en Windows devuelve 1 con todo en verde; y terminan en 2 cuando
+**no pudieron mirar**, para que un runner que no arranco no se informe como
+"todo bien".
 
 Los datos de la semilla son **generados, nunca reales**, y el grupo tiene un id
 fijo para que esa URL no cambie.
