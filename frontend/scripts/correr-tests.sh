@@ -29,8 +29,16 @@ codigo="$?"
 echo "$salida"
 echo "---"
 
+# Se parsea la salida **sin los codigos de color**, y esto costo un CI rojo con
+# los 20 tests en verde: en una terminal sin tty Vitest no colorea y la linea
+# del resumen arranca con espacios, pero en Actions colorea y arranca con un
+# escape ANSI, asi que `^[[:space:]]*Tests` no matcheaba y el envoltorio
+# informaba NO-PUDE-MIRAR sobre una corrida perfecta. Un chequeo que acusa lo
+# que estaba bien se apaga a la semana, y entonces no chequea nada.
+sin_color="$(sed -E $'s/\x1b\\[[0-9;]*[A-Za-z]//g' <<<"$salida")"
+
 # La linea del resumen: " Tests  20 passed (20)" o " Tests  2 failed | 18 passed (20)".
-resumen="$(grep -E '^[[:space:]]*Tests[[:space:]]' <<<"$salida" | tail -1)"
+resumen="$(grep -E '^[[:space:]]*Tests[[:space:]]' <<<"$sin_color" | tail -1)"
 
 if grep -qE 'failed' <<<"$resumen"; then
   echo "VEREDICTO: FALLAN los tests del frontend (codigo de salida: $codigo)"
