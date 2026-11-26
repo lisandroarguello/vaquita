@@ -3,12 +3,19 @@
 # Corre una suite de tests y decide el veredicto **leyendo la salida**.
 #
 # Por que existe este envoltorio y no un `node ace test <suite>` pelado: el
-# codigo de salida de `node ace test` no es confiable. Esta medido en esta
-# maquina: `node ace test unit` devuelve **1 con las 160 pruebas en verde**,
-# cinco veces de cinco, mientras `node ace test database` devuelve 0 con las
-# suyas tambien en verde. Lo mismo con `--groups` y con `--files`. Un CI que
-# confie en ese numero queda rojo para siempre con todo pasando, y un CI
-# siempre rojo no lo mira nadie a la semana.
+# codigo de salida de `node ace test` **depende de la plataforma**, y eso esta
+# medido de los dos lados.
+#
+# En Windows, que es donde se desarrolla esto: `node ace test unit` devuelve
+# **1 con las 160 pruebas en verde**, cinco veces de cinco, mientras `node ace
+# test database` devuelve 0 con las suyas tambien en verde. Lo mismo con
+# `--groups` y con `--files`. En el runner de Linux del CI, en cambio, las tres
+# suites devolvieron 0.
+#
+# O sea que un CI que confiara en ese numero funcionaria —hoy, en Linux— y
+# cualquiera que corriera lo mismo en su maquina lo veria rojo con todo
+# pasando. Un numero que significa cosas distintas segun donde corre no es un
+# veredicto: es una coincidencia.
 #
 # La regla del proyecto es la misma de los mutantes, y por el mismo motivo: el
 # veredicto se lee de la salida (`PASSED` / `FAILED`), nunca del codigo de
