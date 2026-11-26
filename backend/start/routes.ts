@@ -12,6 +12,7 @@ import { middleware } from '#start/kernel'
 
 const GroupsController = () => import('#controllers/groups_controller')
 const AuthController = () => import('#controllers/auth_controller')
+const MembershipsController = () => import('#controllers/memberships_controller')
 
 router.get('/', async () => {
   return { name: 'vaquita', status: 'ok' }
@@ -31,6 +32,13 @@ router
     router.get('/me', [AuthController, 'me']).use(middleware.auth())
 
     /**
+     * Grupos sin `:id`: todavia no hay grupo del que ser integrante, asi que
+     * llevan `auth` y nada mas. No pueden entrar en el grupo de abajo.
+     */
+    router.get('/groups', [GroupsController, 'index']).use(middleware.auth())
+    router.post('/groups', [GroupsController, 'store']).use(middleware.auth())
+
+    /**
      * API-8 — todo lo que cuelga de `/groups/:id` exige sesion **y** ser
      * integrante activo del grupo.
      *
@@ -46,6 +54,10 @@ router
      */
     router
       .group(() => {
+        router.get('/', [GroupsController, 'show'])
+        router.patch('/', [GroupsController, 'update'])
+        router.post('/members', [MembershipsController, 'store'])
+        router.patch('/members/:mid', [MembershipsController, 'update'])
         router.get('/balances', [GroupsController, 'balances'])
         router.get('/settlement', [GroupsController, 'settlement'])
       })

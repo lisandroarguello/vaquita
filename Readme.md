@@ -694,6 +694,7 @@ El cliente usa esa distincion para decidir donde mostrarlo.
 | `POST` | `/groups` | Crea un grupo. `{ name, currency }` |
 | `GET` | `/groups/{id}` | Detalle: integrantes, estado, totales |
 | `PATCH` | `/groups/{id}` | Renombrar o cerrar. Solo administrador |
+| `POST` | `/groups/{id}/members` | Suma a alguien por mail. Solo administrador |
 | `POST` | `/groups/{id}/invitations` | Genera enlace con token. Solo administrador |
 | `POST` | `/invitations/{token}/accept` | El invitado se suma al grupo |
 | `PATCH` | `/groups/{id}/members/{mid}` | Alias de cobro, rol, activo/inactivo |
@@ -749,6 +750,48 @@ Un grupo ajeno, un grupo inexistente y un grupo del que te desactivaron devuelve
 los tres el mismo `404`, con el mismo cuerpo y los mismos headers. Falta de
 **rol** es distinto y ahi `403` es legitimo, porque quien pregunta ya sabe que el
 grupo existe y que es integrante.
+
+### Grupos y membresias (API-2)
+
+```
+GET   /api/v1/groups                        -> 200  los grupos propios, con el saldo propio
+POST  /api/v1/groups                        -> 201  { name, currency? }
+GET   /api/v1/groups/{id}                   -> 200  integrantes, estado y totales
+PATCH /api/v1/groups/{id}                   -> 200  { name?, status? }      solo administrador
+POST  /api/v1/groups/{id}/members           -> 201  { email }               solo administrador
+PATCH /api/v1/groups/{id}/members/{mid}     -> 200  { payout_alias?, role?, active? }
+```
+
+**Crear un grupo mete adentro a quien lo creo, como administrador, en la misma
+transaccion.** No es una comodidad: la membresia es la unidad de autorizacion, y
+un grupo sin ella le devuelve 404 a su propio creador (ver API-8), con lo que
+queda inalcanzable para siempre.
+
+`GET /groups` trae `my_balance_cents` por grupo, calculado con el mismo
+`calcularSaldos` del dominio que usa `/balances`. Una suma en SQL seria una
+segunda implementacion de los saldos, y el dia que no coincidan los dos numeros
+serian plausibles.
+
+Sobre quien puede que:
+
+- Renombrar, cerrar, agregar integrantes, cambiar roles y desactivar es **solo
+  del administrador**, y la negativa es `403` con `rule: "forbidden_role"`.
+- **El `payout_alias` propio no**: cada uno carga el suyo sin pedir permiso. Es
+  donde le entra la plata, y pedirselo a un administrador termina en un plan de
+  cierre con `payout_alias: null`, que no se puede ejecutar.
+- **El grupo no puede quedarse sin un administrador activo.** Bajarse de rol o
+  desactivarse siendo el ultimo da `409` con `rule: "last_admin"`.
+- Un `{mid}` que no es de ese grupo da `404`, no `403`: el `403` confirmaria que
+  esa membresia existe en otro lado.
+- Volver a agregar a alguien desactivado **lo reactiva** y conserva su
+  `membership_id`, que es lo que los gastos ya pagados referencian. Responde
+  `200`, no `201`: no se creo nada.
+- Agregar exige que la persona ya tenga cuenta; si no, `404` con
+  `field: "email"`. Eso revela si un mail esta registrado, a diferencia del
+  login, y es deliberado: hace falta sesion **y** ser administrador de un grupo,
+  asi que es un administrador consultando de a un mail, no cualquiera
+  enumerando. API-3 lo resuelve de verdad, porque con una invitacion por token
+  no hace falta saber nada del otro lado.
 
 ### Las dos respuestas que importan
 
@@ -896,14 +939,14 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 | **DAT-1** | Esquema inicial y migraciones | Las 7 tablas con sus claves, indices y `CHECK` |
 | **DAT-2** | Trigger de integridad de reparto | Insertar shares que no suman el total es rechazado por la base |
 | **DAT-3** | Semillas de desarrollo | Un grupo de 6 con 20 gastos variados, reproducible |
-| **DAT-4** | Repositorios de grupos, gastos y pagos | Tests de integracion contra Postgres real en contenedor |
+| **DAT-4** | Repositorios de grupos, gastos y pagos | Tests de integracion contra Postgres real en contenedor — **parcial**: `grupo_repository` completo, con `trx` opcional y escritura multi-tabla en transaccion; `gasto_`, `pago_` e `invitacion_repository` nacen con API-4, API-7 y API-3 |
 
 ### API
 
 | ID | Titulo | Criterio de hecho |
 |---|---|---|
 | **API-1** | Registro, login y sesion | Contraseñas con hash; tokens con expiracion — **hecho** |
-| **API-2** | CRUD de grupos y membresias | Solo el administrador agrega o desactiva integrantes |
+| **API-2** | CRUD de grupos y membresias | Solo el administrador agrega o desactiva integrantes — **hecho** |
 | **API-3** | Invitaciones por token | Vencimiento y limite de usos verificados |
 | **API-4** | Alta, edicion y anulacion de gastos | Los tres modos de division validados en el borde |
 | **API-5** | `GET /groups/{id}/balances` | Devuelve saldo por integrante; suma cero verificada — **hecho** |

@@ -4,6 +4,7 @@ import { crearUsuario, verificarCredenciales } from '#repositories/usuario_repos
 import type { UsuarioPublico } from '#repositories/usuario_repository'
 import { loginValidator, registroValidator } from '#validators/auth_validator'
 import type { AccessToken } from '@adonisjs/auth/access_tokens'
+import { errorDeValidacion } from '#controllers/respuestas'
 
 /**
  * API-1 — registro, inicio de sesion, cierre de sesion y `/me`.
@@ -136,21 +137,6 @@ function tokenPublico(token: AccessToken) {
     value: token.value!.release(),
     expires_at: token.expiresAt?.toISOString() ?? null,
   }
-}
-
-/** Traduce el error de VineJS a la forma unica del proyecto, con status 400. */
-function errorDeValidacion(error: unknown) {
-  const mensajes = (error as { messages?: unknown }).messages
-  if (Array.isArray(mensajes)) {
-    return {
-      errors: mensajes.map((m: { field?: string; rule?: string; message: string }) => ({
-        field: m.field,
-        rule: m.rule,
-        message: m.message,
-      })),
-    }
-  }
-  throw error
 }
 
 /**
