@@ -276,6 +276,14 @@ export default class GroupsController {
     return {
       currency: grupo.moneda,
       transfers: plan.map((t) => ({
+        // Los ids antes que los nombres, y los dos: el nombre es para mostrar y
+        // el id es para operar. Sin los ids, convertir una transferencia de
+        // este plan en un `POST /payments` (API-7) obliga al cliente a cruzar
+        // nombres contra la lista de integrantes, y dos personas del mismo
+        // grupo pueden llamarse igual. Lo encontro el recorrido completo de
+        // QA-4, que es exactamente para lo que existe.
+        from_membership_id: t.de,
+        to_membership_id: t.para,
         from: nombreDe(grupo, t.de),
         to: nombreDe(grupo, t.para),
         amount_cents: t.monto.cents,

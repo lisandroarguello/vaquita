@@ -1,0 +1,102 @@
+# QA-2 — lint, typecheck y las tres suites, contra un Postgres de servicio.
+#
+# Lo que este workflow tiene que lograr es que nadie tenga que acordarse de
+# correr nada: las tres suites del proyecto corren en cada push y en cada pull
+# request, y la de dominio (160 pruebas) no necesita base, asi que si falla algo
+# ahi se sabe en segundos.
+#
+# El veredicto de cada suite lo decide `scripts/correr-suite.sh`, leyendo la
+# salida: el codigo de salida de `node ace test` no es confiable (esta medido;
+# el script lo explica). Ese mismo script termina en 2 cuando **no pudo mirar**,
+# para que un runner que no arranco no se informe como "todo bien".
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  verificar:
+    name: lint, typecheck y las tres suites
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        # La misma imagen que el `docker-compose.yml` de desarrollo: una version
+        # distinta de Postgres en CI haria que los triggers de DAT-2 y los
+        # `CHECK` se verifiquen contra un motor que no es el que usa nadie.
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: vaquita
+          POSTGRES_PASSWORD: vaquita
+          POSTGRES_DB: vaquita
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vaquita -d vaquita"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TZ: UTC
+      NODE_ENV: test
+      PORT: 3333
+      HOST: localhost
+      LOG_LEVEL: warn
+      DB_HOST: 127.0.0.1
+      # 5432 y no 5433: el 5433 del compose existe para no chocar con un
+      # Postgres instalado en la maquina de uno, y aca no hay ninguno.
+      DB_PORT: 5432
+      DB_USER: vaquita
+      DB_PASSWORD: vaquita
+      # La base de los tests, aparte de la de desarrollo, igual que en local:
+      # los tests vacian tablas entre casos.
+      DB_DATABASE: vaquita_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: APP_KEY de un solo uso
+        # Generada por corrida y nunca versionada: `backend/.env` esta en
+        # `.gitignore` justamente para que la clave de desarrollo no viaje al
+        # repositorio, y poner una fija aca seria desarmar eso desde el otro
+        # lado. A los tests les da igual cual sea.
+        run: echo "APP_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - name: Crear la base de los tests
+        # En desarrollo la crea `docker/crear-base-de-test.sql` al inicializar
+        # el contenedor; un servicio de Actions no corre esos scripts.
+        run: PGPASSWORD=vaquita psql -h 127.0.0.1 -U vaquita -d vaquita -c 'CREATE DATABASE vaquita_test'
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Las tres suites van en pasos separados a proposito: asi el nombre del
+      # paso rojo ya dice si lo que se rompio es el dominio, el esquema o la
+      # costura entre endpoints, sin abrir el log.
+      - name: Tests de dominio (sin infraestructura)
+        run: bash scripts/correr-suite.sh unit
+
+      - name: Tests de esquema (contra Postgres)
+        run: bash scripts/correr-suite.sh database
+
+      - name: Tests extremo a extremo
+        run: bash scripts/correr-suite.sh functional

@@ -75,3 +75,17 @@ export function errorDeValidacion(error: unknown) {
   }
   throw error
 }
+
+/**
+ * El grupo cerrado, que es **409 y no 403**: nadie carece de permiso, el
+ * recurso esta en un estado que no acepta cambios.
+ *
+ * Nacio al pie de `expenses_controller.ts` y subio aca cuando API-7 lo
+ * necesito: dos copias del mismo `rule` son dos lugares donde cambiarlo, y la
+ * segunda nunca se cambia.
+ */
+export function grupoCerrado() {
+  return {
+    errors: [{ rule: 'group_closed', message: 'El grupo esta cerrado: no acepta cambios' }],
+  }
+}

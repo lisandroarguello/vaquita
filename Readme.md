@@ -878,8 +878,14 @@ para encontrar su propia fila.
 {
   "currency": "ARS",
   "transfers": [
-    { "from": "Javier", "to": "Ana", "amount_cents": 1100000, "payout_alias": "ana.mp" },
-    { "from": "Sol",    "to": "Ana", "amount_cents":  740000, "payout_alias": "ana.mp" }
+    {
+      "from_membership_id": "...", "to_membership_id": "...",
+      "from": "Javier", "to": "Ana", "amount_cents": 1100000, "payout_alias": "ana.mp"
+    },
+    {
+      "from_membership_id": "...", "to_membership_id": "...",
+      "from": "Sol", "to": "Ana", "amount_cents": 740000, "payout_alias": "ana.mp"
+    }
   ],
   "transfer_count": 2,
   "naive_transfer_count": 3,
@@ -890,6 +896,61 @@ para encontrar su propia fila.
 `naive_transfer_count` esta para que se vea el valor del producto: cuantas
 transferencias se ahorraron. `verified` es la invariante de la seccion 3.1; si
 fuera `false` el endpoint no habria devuelto `200`.
+
+Cada transferencia trae **los ids y los nombres**: el nombre es para mostrar y el
+id es para operar. Sin los ids, convertir una transferencia de este plan en un
+`POST /payments` obligaria al cliente a cruzar nombres contra la lista de
+integrantes, y dos personas del mismo grupo pueden llamarse igual. Lo encontro el
+recorrido completo de QA-4, que es para lo que existe.
+
+### Pagos (API-7)
+
+Marcar que una transferencia del plan se hizo. **Vaquita no mueve plata**: esta
+fila dice que la plata se movio afuera, y los saldos se recalculan con ese dato.
+
+```
+POST /api/v1/groups/{id}/payments   -> 201
+{ "from_membership_id": "...", "to_membership_id": "...", "amount_cents": 1100000 }
+```
+
+```json
+{
+  "payment": {
+    "id": "...",
+    "from_membership_id": "...",
+    "to_membership_id": "...",
+    "amount_cents": 1100000,
+    "confirmed_at": "2026-11-29T18:00:00.000Z",
+    "confirmed_by": "..."
+  }
+}
+```
+
+**Quien puede registrarlo:** el pagador, el cobrador o un administrador. Los dos
+primeros porque son los unicos que lo vieron; el administrador porque alguien
+tiene que poder cerrar el grupo cuando uno de los dos no vuelve a abrir la
+aplicacion. Cualquier otro integrante recibe `403` — no `404`, porque ya sabe que
+el grupo existe. `confirmed_by` queda guardado: es lo que permite auditar despues
+quien dijo que la plata se movio.
+
+**El pago repetido es `409`.** Un doble click sobre "ya transferi" cobraria dos
+veces y dejaria a alguien con saldo a favor que nadie le debe. No es un `UNIQUE`
+en la base porque dos pagos identicos son legitimos —la misma persona le paga a
+la misma otra el mismo monto por dos deudas distintas—; la diferencia no esta en
+los datos sino en si quien manda el segundo pedido sabia del primero, y eso solo
+se puede preguntar por HTTP. La respuesta trae el pago que ya existe en
+`existing_payment`, y quien de verdad quiso repetirlo manda
+`"allow_duplicate": true`.
+
+`422` cuando el pago es imposible: contra uno mismo (`same_membership`), o contra
+alguien que no es integrante activo de este grupo (`unknown_membership`), con el
+`field` apuntando al extremo que falla. Las FK compuestas de DAT-1 ya lo
+rechazarian, pero como `500`: la restriccion es la red y esto es la respuesta.
+
+**Pagar mas que la deuda se registra igual**, y da vuelta el saldo. Es una
+decision: la fila dice que la plata se movio, y eso es cierto aunque sea de mas.
+Rechazarlo obligaria a Vaquita a opinar sobre plata que no vio, y la deuda al
+reves es un hecho real que el proximo plan de cierre resuelve solo.
 
 ### Codigos de estado
 
@@ -993,7 +1054,7 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 | **DAT-1** | Esquema inicial y migraciones | Las 7 tablas con sus claves, indices y `CHECK` |
 | **DAT-2** | Trigger de integridad de reparto | Insertar shares que no suman el total es rechazado por la base — **hecho** |
 | **DAT-3** | Semillas de desarrollo | Un grupo de 6 con 20 gastos variados, reproducible |
-| **DAT-4** | Repositorios de grupos, gastos y pagos | Tests de integracion contra Postgres real en contenedor — **parcial**: `grupo_repository` completo, con `trx` opcional y escritura multi-tabla en transaccion; `gasto_`, `pago_` e `invitacion_repository` nacen con API-4, API-7 y API-3 |
+| **DAT-4** | Repositorios de grupos, gastos y pagos | Tests de integracion contra Postgres real en contenedor — **parcial**: `grupo_`, `gasto_` y `pago_repository` completos, con `trx` opcional y escritura multi-tabla en transaccion; falta `invitacion_repository`, que nace con API-3 |
 
 ### API
 
@@ -1005,7 +1066,7 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 | **API-4** | Alta, edicion y anulacion de gastos | Los tres modos de division validados en el borde — **hecho** |
 | **API-5** | `GET /groups/{id}/balances` | Devuelve saldo por integrante; suma cero verificada — **hecho** |
 | **API-6** | `GET /groups/{id}/settlement` | Plan minimo con alias; 500 explicito si falla una invariante — **hecho** |
-| **API-7** | `POST /groups/{id}/payments` | Marcar transferencia como hecha; recalcula saldos |
+| **API-7** | `POST /groups/{id}/payments` | Marcar transferencia como hecha; recalcula saldos — **hecho**: 409 ante el pago repetido, con salida explicita |
 | **API-8** | Autorizacion por pertenencia al grupo | Un no integrante recibe 404, no 403 (no filtra existencia) — **hecho** |
 
 ### Ingesta
@@ -1038,9 +1099,9 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 | ID | Titulo | Criterio de hecho |
 |---|---|---|
 | **QA-1** | Tests de propiedad sobre el minimizador | 10.000 casos aleatorios; todos cierran en cero |
-| **QA-2** | CI con lint, tipos y tests | La rama no mergea en rojo |
+| **QA-2** | CI con lint, tipos y tests | La rama no mergea en rojo — **hecho**: `.github/workflows/ci.yml`, con Postgres 17 de servicio y el veredicto leido de la salida |
 | **QA-3** | `.env.example` y documentacion de arranque | Clonar y levantar en limpio siguiendo solo el README |
-| **QA-4** | Recorrido end-to-end del caso principal | Crear grupo, cargar gastos, cerrar, saldos en cero |
+| **QA-4** | Recorrido end-to-end del caso principal | Crear grupo, cargar gastos, cerrar, saldos en cero — **hecho** a nivel API: `tests/functional/recorrido_completo.spec.ts` |
 
 ---
 

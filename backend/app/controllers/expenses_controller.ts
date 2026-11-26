@@ -22,7 +22,7 @@ import {
   crearGastoValidator,
   historialValidator,
 } from '#validators/gasto_validator'
-import { errorDe, errorDeRol, errorDeValidacion } from '#controllers/respuestas'
+import { errorDe, errorDeRol, errorDeValidacion, grupoCerrado } from '#controllers/respuestas'
 
 /**
  * API-4 — alta, edicion, anulacion e historial de gastos.
@@ -261,12 +261,6 @@ export default class ExpensesController {
 /** Quien lo cargo, o un administrador. */
 function puedeTocar(gasto: GastoConReparto, membresia: { id: string; rol: string }): boolean {
   return gasto.cargadoPor === membresia.id || membresia.rol === 'admin'
-}
-
-function grupoCerrado() {
-  return {
-    errors: [{ rule: 'group_closed', message: 'El grupo esta cerrado: no acepta cambios' }],
-  }
 }
 
 /**
