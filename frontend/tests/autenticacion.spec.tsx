@@ -26,7 +26,13 @@ describe('rutas protegidas | lo de adentro exige sesion', () => {
 
   test('quien ya tiene sesion no se queda en el login', async () => {
     window.localStorage.setItem(CLAVE, 'vaq_token_guardado')
-    instalarBackend({ 'GET /api/v1/me': { estado: 200, cuerpo: { user: USUARIO } } })
+    instalarBackend({
+      'GET /api/v1/me': { estado: 200, cuerpo: { user: USUARIO } },
+      // La pantalla de adentro es la lista de grupos (FE-2): su pedido tambien
+      // se declara, porque el backend de mentira falla con la ruta que no
+      // esperaba en vez de contestar 200 vacio.
+      'GET /api/v1/groups': { estado: 200, cuerpo: { groups: [] } },
+    })
 
     montar(<App />, { ruta: '/entrar' })
 
@@ -38,6 +44,7 @@ describe('entrar | el formulario de inicio de sesion', () => {
   test('con las credenciales bien, entra y deja la sesion guardada', async () => {
     const pedidos = instalarBackend({
       'POST /api/v1/auth/login': { estado: 200, cuerpo: respuestaDeSesion('vaq_token_nuevo') },
+      'GET /api/v1/groups': { estado: 200, cuerpo: { groups: [] } },
     })
 
     montar(<App />, { ruta: '/entrar' })
@@ -97,6 +104,7 @@ describe('registro | el alta de cuenta', () => {
   test('crea la cuenta y entra sin pedir el login de nuevo', async () => {
     const pedidos = instalarBackend({
       'POST /api/v1/auth/signup': { estado: 201, cuerpo: respuestaDeSesion('vaq_token_de_alta') },
+      'GET /api/v1/groups': { estado: 200, cuerpo: { groups: [] } },
     })
 
     montar(<App />, { ruta: '/registro' })
@@ -147,6 +155,7 @@ describe('salir | cerrar sesion', () => {
     window.localStorage.setItem(CLAVE, 'vaq_token_guardado')
     const pedidos = instalarBackend({
       'GET /api/v1/me': { estado: 200, cuerpo: { user: USUARIO } },
+      'GET /api/v1/groups': { estado: 200, cuerpo: { groups: [] } },
       'POST /api/v1/auth/logout': { estado: 200, cuerpo: { revoked: true } },
     })
 

@@ -16,7 +16,13 @@ describe('arranque | el gate de carga', () => {
   test('con token guardado, no muestra el login mientras no sabe quien sos', async () => {
     window.localStorage.setItem(CLAVE, 'vaq_token_guardado')
     const { manejador, responder } = respuestaDemorada()
-    instalarBackend({ 'GET /api/v1/me': manejador })
+    instalarBackend({
+      'GET /api/v1/me': manejador,
+      // La pantalla de adentro es la lista de grupos (FE-2): su pedido tambien
+      // se declara, porque el backend de mentira falla con una ruta que no
+      // esperaba en vez de contestar 200 vacio.
+      'GET /api/v1/groups': { estado: 200, cuerpo: { groups: [] } },
+    })
 
     montar(<App />, { ruta: '/' })
 
@@ -36,6 +42,7 @@ describe('arranque | el gate de carga', () => {
     window.localStorage.setItem(CLAVE, 'vaq_token_guardado')
     const pedidos = instalarBackend({
       'GET /api/v1/me': { estado: 200, cuerpo: { user: USUARIO } },
+      'GET /api/v1/groups': { estado: 200, cuerpo: { groups: [] } },
     })
 
     montar(<App />, { ruta: '/' })

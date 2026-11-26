@@ -1054,6 +1054,22 @@ sos", que es indistinguible de "no hay sesion": la ruta protegida redirige al
 login y la navegacion se deshace sola cuando `/me` contesta. Eso es el parpadeo
 que FE-1 no acepta, y el gate lo resuelve sin trucos.
 
+**El dinero, del lado del cliente.** `src/dinero.ts` solo **muestra**: los
+montos llegan en centavos enteros y ahi no hay ninguna funcion que sume.
+Dividir por 100 para dibujar un texto es correcto; dividir por 100 para operar
+reintroduce el float que todo el dominio evita. El signo del saldo va en
+**palabras** —"te deben", "debes", "estas en cero"— y el monto se muestra en
+valor absoluto: un menos adelante es un caracter de un pixel que decide si te
+deben o debes, y el color no sobrevive a un lector de pantalla. El cero es su
+propio caso y no "no positivo", porque decirle "debes $0,00" a quien esta
+saldado lo manda a buscar una deuda que no existe.
+
+**Los tres estados del listado** (FE-2) son tres mensajes distintos y no
+decoracion: "todavia no cargo" invita a esperar, "no tenes grupos" invita a
+crear uno, y "no pudimos traerlos" invita a reintentar. Un listado que mostrara
+la lista vacia en los tres casos diria "no tenes grupos" cuando lo que paso es
+que se cayo la red, y la persona crearia de nuevo un grupo que ya tiene.
+
 **Tests del frontend:** Vitest con Testing Library sobre jsdom. El veredicto lo
 decide `frontend/scripts/correr-tests.sh` leyendo la salida, con los tres
 resultados del proyecto —pasa, falla y **no pude mirar**—, porque un `vitest
@@ -1061,8 +1077,10 @@ run` que no encuentra archivos que correr tambien puede terminar en 0 y un paso
 de CI que no corre nada se informaria verde.
 
 **Lo que todavia no esta:** Tailwind y shadcn/ui, que esta tabla promete para los
-estilos. El andamiaje trae HTML sin estilar a proposito: las pantallas que los
-van a usar son FE-2 y las que siguen.
+estilos. Las pantallas de FE-1 y FE-2 son **HTML sin estilar**, a proposito: la
+estructura y los estados estan resueltos y verificados por tests, y el estilo se
+aplica encima cuando haya mas pantallas sobre las que valga la pena definir un
+sistema. Es deuda declarada, no una pieza a medias escondida.
 
 **Lo que no depende de esta eleccion.** El dominio — reparto en centavos y
 minimizacion de transferencias — es codigo puro sin dependencias de framework. Si
@@ -1127,7 +1145,7 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 | ID | Titulo | Criterio de hecho |
 |---|---|---|
 | **FE-1** ✅ | Autenticacion y rutas protegidas | Sin parpadeo al recargar con sesion valida |
-| **FE-2** | Lista de grupos y alta de grupo | Estados de vacio, carga y error cubiertos |
+| **FE-2** ✅ | Lista de grupos y alta de grupo | Estados de vacio, carga y error cubiertos |
 | **FE-3** | Vista de grupo con saldos | Signo legible sin depender solo del color |
 | **FE-4** | Formulario de gasto con los tres modos | El error de suma se muestra en el campo que corresponde |
 | **FE-5** | Flujo de borrador desde texto o imagen | Los campos de confianza baja requieren confirmacion explicita |
