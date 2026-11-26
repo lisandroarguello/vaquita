@@ -8,8 +8,10 @@
 */
 
 import router from '@adonisjs/core/services/router'
+import { middleware } from '#start/kernel'
 
 const GroupsController = () => import('#controllers/groups_controller')
+const AuthController = () => import('#controllers/auth_controller')
 
 router.get('/', async () => {
   return { name: 'vaquita', status: 'ok' }
@@ -21,7 +23,33 @@ router.get('/', async () => {
  */
 router
   .group(() => {
-    router.get('/groups/:id/balances', [GroupsController, 'balances'])
-    router.get('/groups/:id/settlement', [GroupsController, 'settlement'])
+    // Las dos unicas rutas abiertas de la API: son las que crean la sesion.
+    router.post('/auth/signup', [AuthController, 'signup'])
+    router.post('/auth/login', [AuthController, 'login'])
+
+    router.post('/auth/logout', [AuthController, 'logout']).use(middleware.auth())
+    router.get('/me', [AuthController, 'me']).use(middleware.auth())
+
+    /**
+     * API-8 — todo lo que cuelga de `/groups/:id` exige sesion **y** ser
+     * integrante activo del grupo.
+     *
+     * El middleware va en el **grupo de rutas**, no en cada accion, y eso es la
+     * decision: una ruta nueva bajo `/groups/:id/` queda protegida sin que nadie
+     * se acuerde de protegerla. Olvidarse un middleware en una ruta nueva no
+     * rompe ningun test —la ruta funciona, solo que para cualquiera— y es
+     * exactamente la clase de agujero que nadie encuentra leyendo.
+     *
+     * Las rutas de grupos que **no** llevan `:id` (listar los grupos propios,
+     * crear uno) no entran acá: todavia no hay grupo del que ser integrante.
+     * Van en API-2, con `middleware.auth()` solo.
+     */
+    router
+      .group(() => {
+        router.get('/balances', [GroupsController, 'balances'])
+        router.get('/settlement', [GroupsController, 'settlement'])
+      })
+      .prefix('/groups/:id')
+      .use([middleware.auth(), middleware.miembro()])
   })
   .prefix('/api/v1')

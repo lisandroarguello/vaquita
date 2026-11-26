@@ -14,6 +14,11 @@ import testUtils from '@adonisjs/core/services/test_utils'
  * misma decision de DOM-7 y por el mismo motivo: si el test verificara el plan
  * con el mismo codigo que la ruta usa para verificarlo, un error compartido
  * quedaria invisible en los dos lados a la vez.
+ *
+ * Desde API-8 las dos rutas exigen sesion y pertenencia, asi que todo esto pasa
+ * autenticado como Ana, que es integrante del grupo de la semilla. El token se
+ * saca **iniciando sesion de verdad**, no fabricandolo: si el login se rompe,
+ * este test tambien tiene que romperse.
  */
 
 const GRUPO = '11111111-1111-4111-8111-111111111111'
@@ -33,10 +38,20 @@ interface Transferencia {
 }
 
 test.group('cierre | el grupo de prueba se puede saldar de punta a punta', (group) => {
+  let token: string
+
   group.each.setup(() => testUtils.db().seed())
+  // Ana, la administradora del grupo de la semilla.
+  group.each.setup(async (t) => {
+    const login = await t.context.client
+      .post('/api/v1/auth/login')
+      .json({ email: 'ana@vaquita.example', password: 'vaquita-demo' })
+    login.assertStatus(200)
+    token = login.body().token.value
+  })
 
   test('los saldos del grupo suman exactamente cero', async ({ client, assert }) => {
-    const respuesta = await client.get(`/api/v1/groups/${GRUPO}/balances`)
+    const respuesta = await client.get(`/api/v1/groups/${GRUPO}/balances`).bearerToken(token)
     respuesta.assertStatus(200)
 
     const cuerpo = respuesta.body()
@@ -55,9 +70,9 @@ test.group('cierre | el grupo de prueba se puede saldar de punta a punta', (grou
   })
 
   test('el plan de cierre deja a todos en cero y respeta la cota', async ({ client, assert }) => {
-    const respuestaSaldos = await client.get(`/api/v1/groups/${GRUPO}/balances`)
+    const respuestaSaldos = await client.get(`/api/v1/groups/${GRUPO}/balances`).bearerToken(token)
     const saldos = respuestaSaldos.body()
-    const respuesta = await client.get(`/api/v1/groups/${GRUPO}/settlement`)
+    const respuesta = await client.get(`/api/v1/groups/${GRUPO}/settlement`).bearerToken(token)
     respuesta.assertStatus(200)
 
     const cuerpo = respuesta.body()
@@ -111,7 +126,7 @@ test.group('cierre | el grupo de prueba se puede saldar de punta a punta', (grou
       Nico: 'nico.mp',
     }
 
-    const plan = await client.get(`/api/v1/groups/${GRUPO}/settlement`)
+    const plan = await client.get(`/api/v1/groups/${GRUPO}/settlement`).bearerToken(token)
     const cuerpo = plan.body()
     assert.isAbove(cuerpo.transfers.length, 0)
 
@@ -135,7 +150,7 @@ test.group('cierre | el grupo de prueba se puede saldar de punta a punta', (grou
   })
 
   test('el plan minimo usa menos transferencias que hacerlo a mano', async ({ client, assert }) => {
-    const plan = await client.get(`/api/v1/groups/${GRUPO}/settlement`)
+    const plan = await client.get(`/api/v1/groups/${GRUPO}/settlement`).bearerToken(token)
     const cuerpo = plan.body()
     assert.isBelow(
       cuerpo.transfer_count,
@@ -145,8 +160,14 @@ test.group('cierre | el grupo de prueba se puede saldar de punta a punta', (grou
   })
 
   test('un grupo que no existe da 404 y no un 500', async ({ client }) => {
-    await client.get(`/api/v1/groups/${INEXISTENTE}/balances`).then((r) => r.assertStatus(404))
-    await client.get(`/api/v1/groups/${INEXISTENTE}/settlement`).then((r) => r.assertStatus(404))
+    await client
+      .get(`/api/v1/groups/${INEXISTENTE}/balances`)
+      .bearerToken(token)
+      .then((r) => r.assertStatus(404))
+    await client
+      .get(`/api/v1/groups/${INEXISTENTE}/settlement`)
+      .bearerToken(token)
+      .then((r) => r.assertStatus(404))
   })
 
   test('la raiz responde, para saber que el servicio esta vivo', async ({ client }) => {

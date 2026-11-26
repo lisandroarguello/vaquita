@@ -43,4 +43,7 @@ router.use([() => import('@adonisjs/core/bodyparser_middleware')])
  */
 export const middleware = router.named({
   auth: () => import('#middleware/auth_middleware'),
+  // Va siempre **despues** de `auth` en la lista de un grupo de rutas: resuelve
+  // la membresia de `ctx.auth.user`, que sin `auth` no existe.
+  miembro: () => import('#middleware/miembro_middleware'),
 })

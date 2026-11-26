@@ -14,11 +14,15 @@ import type { GrupoCargado } from '#repositories/grupo_repository'
  * `_cents` en todos los montos. Viajan **siempre en centavos enteros** para que
  * ningun cliente los interprete como decimales por accidente.
  *
- * **Lo que todavia no esta:** autenticacion (API-1) y autorizacion por
- * pertenencia al grupo (API-8). Hoy estas dos rutas son publicas, que esta bien
- * para un entorno de prueba con datos generados y no para nada mas. Cuando
- * exista la sesion, un no integrante tiene que recibir 404 y no 403, para no
- * filtrar que el grupo existe.
+ * Las dos rutas cuelgan del grupo `/groups/:id`, protegido por
+ * `middleware.auth()` + `middleware.miembro()` (API-8). Cuando el controlador
+ * corre, ya es seguro que hay sesion y que quien pregunta es integrante activo:
+ * `ctx.membresia` lo trae resuelto y no se vuelve a consultar.
+ *
+ * El `grupo === null` de abajo es, por eso, inalcanzable por HTTP —el middleware
+ * ya respondio 404— y se queda igual: el mensaje tiene que ser **el mismo** que
+ * el del middleware, porque un grupo ajeno y un grupo inexistente no pueden
+ * diferir en una coma.
  */
 export default class GroupsController {
   /**
@@ -27,7 +31,7 @@ export default class GroupsController {
    * `sums_to_zero` no es decorativo: es la invariante de DOM-4 expuesta. Si
    * llegara en `false`, el cliente no muestra saldos, muestra un error.
    */
-  async balances({ params, response }: HttpContext) {
+  async balances({ params, response, membresia }: HttpContext) {
     const grupo = await cargarGrupo(params.id)
     if (grupo === null) return response.notFound(errorDe('El grupo no existe'))
 
@@ -47,6 +51,10 @@ export default class GroupsController {
 
     return {
       currency: grupo.moneda,
+      // Cual de estos saldos es el de quien pregunta. Sale de `ctx.membresia`,
+      // que el middleware ya resolvio: sin esto el cliente tendria que cruzar
+      // `/me` contra la lista de integrantes para saber cual es su propia fila.
+      my_membership_id: membresia.id,
       balances: saldos.map((saldo) => ({
         membership_id: saldo.integrante,
         display_name: nombres.get(saldo.integrante) ?? saldo.integrante,

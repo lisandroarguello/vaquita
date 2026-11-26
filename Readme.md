@@ -707,6 +707,49 @@ El cliente usa esa distincion para decidir donde mostrarlo.
 | `GET` | `/groups/{id}/settlement` | Plan minimo de transferencias |
 | `POST` | `/groups/{id}/payments` | Marca una transferencia como hecha |
 
+### Autenticacion (API-1)
+
+Token en `Authorization: Bearer`, con 30 dias de vigencia. Las dos unicas rutas
+abiertas de la API son las que crean la sesion.
+
+```
+POST /api/v1/auth/signup   { email, password, display_name }   -> 201
+POST /api/v1/auth/login    { email, password }                 -> 200
+POST /api/v1/auth/logout                                       -> 200  (con token)
+GET  /api/v1/me                                                -> 200  (con token)
+```
+
+`signup` y `login` devuelven lo mismo:
+
+```json
+{
+  "user": { "id": "...", "email": "ana@vaquita.example", "display_name": "Ana" },
+  "token": { "type": "bearer", "value": "vaq_...", "expires_at": "2026-12-25T18:00:00.000Z" }
+}
+```
+
+El valor del token se entrega **una sola vez**: la base guarda su hash.
+
+- La contraseña pide 12 caracteres como minimo. Largo le gana a reglas de
+  composicion: exigir un simbolo produce `Password1!`, no entropia.
+- `logout` revoca **el token con el que se llamo**, no todos los del usuario:
+  salir en el telefono no echa a nadie de la computadora.
+- Un mail inexistente y una contraseña equivocada devuelven **exactamente** la
+  misma respuesta `401`, sin `field`. Cualquier diferencia convierte el login en
+  un oraculo de quien tiene cuenta.
+- Un mail ya registrado da `409` con `field: "email"`.
+
+### Autorizacion por pertenencia (API-8)
+
+Todo lo que cuelga de `/groups/{id}` exige sesion **y** ser integrante activo del
+grupo. El middleware se aplica al **grupo de rutas**, no a cada accion, para que
+una ruta nueva quede protegida por construccion.
+
+Un grupo ajeno, un grupo inexistente y un grupo del que te desactivaron devuelven
+los tres el mismo `404`, con el mismo cuerpo y los mismos headers. Falta de
+**rol** es distinto y ahi `403` es legitimo, porque quien pregunta ya sabe que el
+grupo existe y que es integrante.
+
 ### Las dos respuestas que importan
 
 `GET /groups/{id}/balances`
@@ -714,6 +757,7 @@ El cliente usa esa distincion para decidir donde mostrarlo.
 ```json
 {
   "currency": "ARS",
+  "my_membership_id": "...",
   "balances": [
     { "membership_id": "...", "display_name": "Ana",    "balance_cents":  1840000 },
     { "membership_id": "...", "display_name": "Javier", "balance_cents": -1100000 },
@@ -725,6 +769,11 @@ El cliente usa esa distincion para decidir donde mostrarlo.
 
 `sums_to_zero` no es decorativo: es la invariante, expuesta. Si alguna vez llegara
 `false`, el cliente no muestra saldos — muestra un error.
+
+`my_membership_id` dice cual de esos saldos es el de quien pregunta. Sale de la
+membresia que el middleware de API-8 ya resolvio, asi que no cuesta una consulta
+mas; sin el, el cliente tendria que cruzar `/me` contra la lista de integrantes
+para encontrar su propia fila.
 
 `GET /groups/{id}/settlement`
 
@@ -749,7 +798,7 @@ fuera `false` el endpoint no habria devuelto `200`.
 
 `200` lectura correcta · `201` creacion · `400` validacion fallida (con `errors`)
 · `401` sin sesion · `404` no existe **o no sos integrante** (no se filtra la
-existencia de grupos ajenos) · `409` conflicto de estado, por ejemplo marcar dos
+existencia de grupos ajenos) · `409` conflicto de estado, por ejemplo un mail ya registrado o marcar dos
 veces la misma transferencia · `422` el LLM devolvio algo que no valida · `500`
 invariante violada, con detalle y sin plan.
 
@@ -853,14 +902,14 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 
 | ID | Titulo | Criterio de hecho |
 |---|---|---|
-| **API-1** | Registro, login y sesion | Contraseñas con hash; tokens con expiracion |
+| **API-1** | Registro, login y sesion | Contraseñas con hash; tokens con expiracion — **hecho** |
 | **API-2** | CRUD de grupos y membresias | Solo el administrador agrega o desactiva integrantes |
 | **API-3** | Invitaciones por token | Vencimiento y limite de usos verificados |
 | **API-4** | Alta, edicion y anulacion de gastos | Los tres modos de division validados en el borde |
-| **API-5** | `GET /groups/{id}/balances` | Devuelve saldo por integrante; suma cero verificada — **hecho** (falta la autorizacion de API-8) |
-| **API-6** | `GET /groups/{id}/settlement` | Plan minimo con alias; 500 explicito si falla una invariante — **hecho** (idem) |
+| **API-5** | `GET /groups/{id}/balances` | Devuelve saldo por integrante; suma cero verificada — **hecho** |
+| **API-6** | `GET /groups/{id}/settlement` | Plan minimo con alias; 500 explicito si falla una invariante — **hecho** |
 | **API-7** | `POST /groups/{id}/payments` | Marcar transferencia como hecha; recalcula saldos |
-| **API-8** | Autorizacion por pertenencia al grupo | Un no integrante recibe 404, no 403 (no filtra existencia) |
+| **API-8** | Autorizacion por pertenencia al grupo | Un no integrante recibe 404, no 403 (no filtra existencia) — **hecho** |
 
 ### Ingesta
 

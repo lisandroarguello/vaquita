@@ -115,3 +115,41 @@ export async function cargarGrupo(grupoId: string): Promise<GrupoCargado | null>
     ),
   }
 }
+
+/** La membresia de alguien en un grupo, que es la unidad de autorizacion. */
+export interface Membresia {
+  id: string
+  grupoId: string
+  usuarioId: string
+  rol: 'admin' | 'member'
+}
+
+/**
+ * Devuelve la membresia **activa** de un usuario en un grupo, o `null`.
+ *
+ * `null` significa las tres cosas a la vez: el grupo no existe, existe y no sos
+ * parte, o eras parte y te desactivaron. Que las tres sean el mismo `null` no es
+ * pereza: es lo que permite que el middleware responda lo mismo en los tres
+ * casos sin tener que acordarse de hacerlo (API-8).
+ *
+ * El `active = true` no es opcional. Sacar a alguien del grupo es `active =
+ * false` y nunca un DELETE, porque ya es parte del historial de gastos; sin este
+ * filtro, "sacado del grupo" seguiria leyendo todo el grupo.
+ */
+export async function membresiaDe(grupoId: string, usuarioId: string): Promise<Membresia | null> {
+  const { rows } = await db.rawQuery(
+    `SELECT m.id, m.group_id, m.user_id, m.role
+       FROM memberships m
+       JOIN groups g ON g.id = m.group_id
+      WHERE m.group_id = ? AND m.user_id = ? AND m.active = true`,
+    [grupoId, usuarioId]
+  )
+  if (rows.length === 0) return null
+
+  return {
+    id: rows[0].id,
+    grupoId: rows[0].group_id,
+    usuarioId: rows[0].user_id,
+    rol: rows[0].role,
+  }
+}
