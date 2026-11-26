@@ -793,6 +793,60 @@ Sobre quien puede que:
   enumerando. API-3 lo resuelve de verdad, porque con una invitacion por token
   no hace falta saber nada del otro lado.
 
+### Gastos (API-4)
+
+```
+GET    /api/v1/groups/{id}/expenses?page=1&per_page=50   -> 200  historial, anulados incluidos
+POST   /api/v1/groups/{id}/expenses                      -> 201  alta con su reparto
+PATCH  /api/v1/groups/{id}/expenses/{eid}                -> 200  edicion; recalcula el reparto
+DELETE /api/v1/groups/{id}/expenses/{eid}                -> 200  **anula**, no borra
+```
+
+El cuerpo del alta, con los tres modos de division:
+
+```json
+{
+  "paid_by": "<membership_id>",
+  "amount_cents": 100001,
+  "description": "Cabaña, 5 noches",
+  "incurred_on": "2026-11-02",
+  "split_mode": "equal",
+  "shares": [{ "membership_id": "..." }, { "membership_id": "..." }]
+}
+```
+
+- `equal` — cada parte trae solo `membership_id`. No es "entre todos": es en
+  partes iguales **entre estos**, asi que se puede dejar afuera a quien no
+  participo.
+- `exact` — cada parte trae `amount_cents`. Tienen que sumar el total.
+- `percentage` — cada parte trae `percentage` **como texto** (`"33.33"`), con dos
+  decimales como maximo. Tienen que sumar 100.
+
+El reparto lo calculan las tres funciones de `backend/app/domain/reparto.ts` y
+nadie mas, igual que en la semilla. Por eso la suma de las partes iguala el total
+siempre, y el centavo que sobra en una division inexacta va a alguien en vez de
+perderse. A quien le toca se rota con el id del gasto: si cayera siempre en el
+primero de la lista, esa persona pagaria de mas en todos los gastos del grupo.
+
+**Quien puede que:** cualquier integrante carga un gasto —es una vaquita, el que
+pago carga lo que pago—, y editarlo o anularlo puede **quien lo cargo o un
+administrador**. Un grupo cerrado no acepta cambios (`409`,
+`rule: "group_closed"`), y un gasto anulado no se edita ni se vuelve a anular
+(`409`, `rule: "already_voided"`).
+
+**El borde, que es donde esta el valor:**
+
+| | |
+|---|---|
+| `400` | la **forma** esta mal: `amount_cents` no entero, positivo o mandado como texto; fecha que no es `YYYY-MM-DD` o que no existe en el calendario; modo desconocido |
+| `422` | la forma esta bien y **la cuenta no cierra**: los montos exactos no suman el total, los porcentajes no suman 100, un porcentaje con tres decimales, alguien que no es integrante activo, la misma persona dos veces |
+
+El `422` trae el `field` apuntando al renglon que falla cuando se puede saber
+cual es —`shares[1].percentage`— y a `shares` cuando el problema es del conjunto.
+Eso es lo que permite marcar la fila equivocada en el formulario en vez de un
+cartel al pie. Y el mensaje dice **cuanto** falta o sobra: "faltan $120,00" se
+arregla solo; "los montos no suman" manda a rehacer la cuenta a mano.
+
 ### Las dos respuestas que importan
 
 `GET /groups/{id}/balances`
@@ -842,7 +896,7 @@ fuera `false` el endpoint no habria devuelto `200`.
 `200` lectura correcta · `201` creacion · `400` validacion fallida (con `errors`)
 · `401` sin sesion · `404` no existe **o no sos integrante** (no se filtra la
 existencia de grupos ajenos) · `409` conflicto de estado, por ejemplo un mail ya registrado o marcar dos
-veces la misma transferencia · `422` el LLM devolvio algo que no valida · `500`
+veces la misma transferencia · `422` la forma es valida y el contenido no cierra (un reparto que no suma, o una salida del LLM que no valida) · `500`
 invariante violada, con detalle y sin plan.
 
 ---
@@ -937,7 +991,7 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 | ID | Titulo | Criterio de hecho |
 |---|---|---|
 | **DAT-1** | Esquema inicial y migraciones | Las 7 tablas con sus claves, indices y `CHECK` |
-| **DAT-2** | Trigger de integridad de reparto | Insertar shares que no suman el total es rechazado por la base |
+| **DAT-2** | Trigger de integridad de reparto | Insertar shares que no suman el total es rechazado por la base — **hecho** |
 | **DAT-3** | Semillas de desarrollo | Un grupo de 6 con 20 gastos variados, reproducible |
 | **DAT-4** | Repositorios de grupos, gastos y pagos | Tests de integracion contra Postgres real en contenedor — **parcial**: `grupo_repository` completo, con `trx` opcional y escritura multi-tabla en transaccion; `gasto_`, `pago_` e `invitacion_repository` nacen con API-4, API-7 y API-3 |
 
@@ -948,7 +1002,7 @@ Agrupados por capa. Cada uno es una unidad entregable y verificable.
 | **API-1** | Registro, login y sesion | Contraseñas con hash; tokens con expiracion — **hecho** |
 | **API-2** | CRUD de grupos y membresias | Solo el administrador agrega o desactiva integrantes — **hecho** |
 | **API-3** | Invitaciones por token | Vencimiento y limite de usos verificados |
-| **API-4** | Alta, edicion y anulacion de gastos | Los tres modos de division validados en el borde |
+| **API-4** | Alta, edicion y anulacion de gastos | Los tres modos de division validados en el borde — **hecho** |
 | **API-5** | `GET /groups/{id}/balances` | Devuelve saldo por integrante; suma cero verificada — **hecho** |
 | **API-6** | `GET /groups/{id}/settlement` | Plan minimo con alias; 500 explicito si falla una invariante — **hecho** |
 | **API-7** | `POST /groups/{id}/payments` | Marcar transferencia como hecha; recalcula saldos |

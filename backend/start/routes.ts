@@ -13,6 +13,7 @@ import { middleware } from '#start/kernel'
 const GroupsController = () => import('#controllers/groups_controller')
 const AuthController = () => import('#controllers/auth_controller')
 const MembershipsController = () => import('#controllers/memberships_controller')
+const ExpensesController = () => import('#controllers/expenses_controller')
 
 router.get('/', async () => {
   return { name: 'vaquita', status: 'ok' }
@@ -58,6 +59,10 @@ router
         router.patch('/', [GroupsController, 'update'])
         router.post('/members', [MembershipsController, 'store'])
         router.patch('/members/:mid', [MembershipsController, 'update'])
+        router.get('/expenses', [ExpensesController, 'index'])
+        router.post('/expenses', [ExpensesController, 'store'])
+        router.patch('/expenses/:eid', [ExpensesController, 'update'])
+        router.delete('/expenses/:eid', [ExpensesController, 'destroy'])
         router.get('/balances', [GroupsController, 'balances'])
         router.get('/settlement', [GroupsController, 'settlement'])
       })

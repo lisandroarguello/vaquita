@@ -94,15 +94,30 @@ async function armarGrupo() {
   return { grupo, ana, beto, admin, integrante }
 }
 
-/** Un gasto valido de $100 pagado por el admin, para colgarle repartos. */
+/**
+ * Un gasto valido de $100 pagado por el admin, **con su reparto completo**.
+ *
+ * El reparto va adentro, y en la misma transaccion, desde DAT-2: el trigger
+ * diferido exige que las partes de un gasto sumen su total, asi que un gasto
+ * suelto ya no se puede commitear. Lo lleva entero el admin, que es el reparto
+ * mas chico que cierra y deja a `integrante` libre para que cada test le cuelgue
+ * lo que necesite probar.
+ */
 async function armarGasto(g: Awaited<ReturnType<typeof armarGrupo>>) {
-  const { rows } = await db.rawQuery(
-    `INSERT INTO expenses (group_id, paid_by, created_by, amount_cents, description,
-                           incurred_on, split_mode)
-     VALUES (?, ?, ?, 10000, 'Asado', '2026-11-17', 'equal') RETURNING id`,
-    [g.grupo, g.admin, g.admin]
-  )
-  return rows[0].id as string
+  return db.transaction(async (trx) => {
+    const { rows } = await trx.rawQuery(
+      `INSERT INTO expenses (group_id, paid_by, created_by, amount_cents, description,
+                             incurred_on, split_mode)
+       VALUES (?, ?, ?, 10000, 'Asado', '2026-11-17', 'equal') RETURNING id`,
+      [g.grupo, g.admin, g.admin]
+    )
+    await trx.rawQuery(
+      `INSERT INTO expense_shares (expense_id, membership_id, group_id, share_cents)
+       VALUES (?, ?, ?, 10000)`,
+      [rows[0].id, g.admin, g.grupo]
+    )
+    return rows[0].id as string
+  })
 }
 
 test.group('esquema | las tablas, las claves y los tipos', (group) => {
@@ -235,7 +250,8 @@ test.group('esquema | los CHECK rechazan lo que no tiene sentido', (group) => {
       [gasto, g.integrante, g.grupo]
     )
     const { rows } = await db.rawQuery(`SELECT count(*)::int AS n FROM expense_shares`)
-    assert.equal(rows[0].n, 1, 'la parte en cero tendria que haber entrado')
+    // Dos: la del admin que `armarGasto` deja para que el gasto cierre, y esta.
+    assert.equal(rows[0].n, 2, 'la parte en cero tendria que haber entrado')
   })
 
   test('un pago de alguien a si mismo no entra', async ({ assert }) => {
@@ -375,12 +391,9 @@ test.group('esquema | lo que es unico es unico', (group) => {
     // rechazaba igual la fila repetida y el test no se enteraba. Salio de un
     // mutante que sobrevivia por no llegar a dispararse.
     const g = await armarGrupo()
+    // `armarGasto` ya dejo la parte del admin, de $100. Esta intenta ser la
+    // segunda de la misma persona en el mismo gasto, por un monto distinto.
     const gasto = await armarGasto(g)
-    await db.rawQuery(
-      `INSERT INTO expense_shares (expense_id, membership_id, group_id, share_cents)
-       VALUES (?, ?, ?, 5000)`,
-      [gasto, g.admin, g.grupo]
-    )
     const error = await fallaCon(() =>
       db.rawQuery(
         `INSERT INTO expense_shares (expense_id, membership_id, group_id, share_cents)
@@ -543,11 +556,6 @@ test.group('esquema | las consultas que importan tienen indice', (group) => {
     // se anula. Esto fija el cascade para la unica fila que si es dependiente.
     const g = await armarGrupo()
     const gasto = await armarGasto(g)
-    await db.rawQuery(
-      `INSERT INTO expense_shares (expense_id, membership_id, group_id, share_cents)
-       VALUES (?, ?, ?, 10000)`,
-      [gasto, g.admin, g.grupo]
-    )
     await db.rawQuery(`DELETE FROM expenses WHERE id = ?`, [gasto])
     const { rows } = await db.rawQuery(`SELECT count(*)::int AS n FROM expense_shares`)
     assert.equal(rows[0].n, 0)

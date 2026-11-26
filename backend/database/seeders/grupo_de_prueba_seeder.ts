@@ -96,7 +96,15 @@ export default class extends BaseSeeder {
     const todos = gente.map((p) => p.id)
     const pesos = (texto: string) => Money.fromDecimalString(texto)
 
-    /** Carga un gasto con su reparto ya resuelto por el dominio. */
+    /**
+     * Carga un gasto con su reparto ya resuelto por el dominio.
+     *
+     * **En una transaccion, y con `SET CONSTRAINTS ALL IMMEDIATE` al final.** No
+     * es prolijidad: desde DAT-2 un gasto y su reparto tienen que entrar juntos
+     * o no entrar, porque el trigger diferido exige que las partes sumen el
+     * total. Sin la transaccion, el `INSERT` del gasto es su propia transaccion
+     * y se rechaza solo, antes de que exista una sola parte.
+     */
     const gasto = async (datos: {
       pagadoPor: string
       total: Money
@@ -106,28 +114,33 @@ export default class extends BaseSeeder {
       modo: 'equal' | 'exact' | 'percentage'
       anulado?: boolean
     }) => {
-      const { rows } = await db.rawQuery(
-        `INSERT INTO expenses (group_id, paid_by, created_by, amount_cents, description,
-                               incurred_on, split_mode, status, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual') RETURNING id`,
-        [
-          GRUPO,
-          datos.pagadoPor,
-          datos.pagadoPor,
-          datos.total.cents,
-          datos.descripcion,
-          datos.fecha,
-          datos.modo,
-          datos.anulado === true ? 'voided' : 'active',
-        ]
-      )
-      for (const parte of datos.partes) {
-        await db.rawQuery(
-          `INSERT INTO expense_shares (expense_id, membership_id, group_id, share_cents)
-           VALUES (?, ?, ?, ?)`,
-          [rows[0].id, parte.integrante, GRUPO, parte.monto.cents]
+      await db.transaction(async (trx) => {
+        const { rows } = await trx.rawQuery(
+          `INSERT INTO expenses (group_id, paid_by, created_by, amount_cents, description,
+                                 incurred_on, split_mode, status, source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual') RETURNING id`,
+          [
+            GRUPO,
+            datos.pagadoPor,
+            datos.pagadoPor,
+            datos.total.cents,
+            datos.descripcion,
+            datos.fecha,
+            datos.modo,
+            datos.anulado === true ? 'voided' : 'active',
+          ]
         )
-      }
+        for (const parte of datos.partes) {
+          await trx.rawQuery(
+            `INSERT INTO expense_shares (expense_id, membership_id, group_id, share_cents)
+             VALUES (?, ?, ?, ?)`,
+            [rows[0].id, parte.integrante, GRUPO, parte.monto.cents]
+          )
+        }
+        // Lucid no propaga el error del commit: si el reparto no cerrara, la
+        // semilla terminaria "bien" y sin gastos. Aca se pide la verificacion.
+        await trx.rawQuery(`SET CONSTRAINTS ALL IMMEDIATE`)
+      })
     }
 
     /** Reparto en partes iguales entre todos, rotando quien se come el resto. */
